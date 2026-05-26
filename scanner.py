@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import config as cfg_module
 from dispatcharr.client import get_client as get_dispatcharr
-from epg.matcher import find_channels_for_event, find_channels_for_game, find_event_earliest_start
+from epg.matcher import find_channels_for_event, find_channels_for_game, find_event_earliest_start, find_event_time_groups
 from epg.xmltv import fetch_xmltv
 from espn.client import get_active_event, get_games_for_subscription
 from models import ESPNGame, ESPNTeam, GameMatch
@@ -211,99 +211,103 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
             # Standings alert fires today — only schedule it if the event has
             # live EPG coverage today (i.e. the tournament is actually running today).
-            today_result = find_channels_for_event(
+            today_has_coverage = bool(find_event_time_groups(
                 event_terms, epg_programs, now.date(), exclude_terms=exclude_terms
-            )
-            today_has_coverage = bool(today_result[0])
+            ))
             standings_scheduled = False
 
             for day_offset in range(1, LOOKAHEAD_DAYS + 1):
                 check_dt = now + timedelta(days=day_offset)
                 check_date = check_dt.date()
+                date_str = check_date.isoformat()
 
-                channels, description, epg_title, epg_subtitle = find_channels_for_event(
+                # Each distinct broadcast window on this day becomes a separate alert.
+                # Channels that start within 60 minutes of each other are grouped;
+                # early AU/featured-group coverage and the main primary-market broadcast
+                # are kept separate so the user gets a notification per airtime.
+                time_groups = find_event_time_groups(
                     event_terms, epg_programs, check_date, exclude_terms=exclude_terms
                 )
-                if not channels:
+                if not time_groups:
                     continue
 
-                # Derive the display name from EPG program data.
-                #
-                # Strategy:
-                #   1. Prefer the title when it's "specific" — i.e. it contains content
-                #      beyond the bare league/tour phrase (e.g. "Austrian Open, DP World
-                #      Tour Golf" is specific; "DP World Tour Golf" alone is generic).
-                #      Strip any leading "Live:" broadcast prefix first.
-                #   2. Fall back to subtitle when the title is generic AND the subtitle
-                #      looks like an actual event name (not a round/day indicator).
-                #   3. Fall back to the generic title, then ESPN event_name, then sub.label.
-                #
-                # This prevents a mislabelled subtitle (e.g. a PGA program subtitle
-                # appearing on a DP World Tour channel) from overriding a correct title.
-                _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
-                _sub = epg_subtitle.strip()
-                _is_round = bool(re.match(
-                    r'^(round|day|session|hole|week)\s*(\d+|one|two|three|four|final)$',
-                    _sub, re.IGNORECASE
-                ))
-                # Title is "specific" if it contains more than just the bare league term
-                _title_is_generic = not _title_clean or any(
-                    _title_clean.lower() == bt.lower() for bt in base_terms
-                )
-                if not _title_is_generic:
-                    display_name = _title_clean
-                elif _sub and not _is_round:
-                    display_name = _sub
-                else:
-                    display_name = _title_clean
-                display_name = display_name or event_name or sub.label
-                log.debug("[%s] EPG match — title=%r subtitle=%r → display=%r",
-                          sub.label, epg_title, epg_subtitle, display_name)
+                day_scheduled = False
 
-                earliest = find_event_earliest_start(
-                    event_terms, epg_programs, check_date, exclude_terms=exclude_terms
-                )
-                event_start = earliest if earliest else check_dt.replace(
-                    hour=12, minute=0, second=0, microsecond=0
-                )
+                for event_start, channels, description, epg_title, epg_subtitle in time_groups:
+                    # Derive the display name from EPG program data.
+                    #
+                    # Strategy:
+                    #   1. Prefer the title when it's "specific" — i.e. it contains content
+                    #      beyond the bare league/tour phrase (e.g. "Austrian Open, DP World
+                    #      Tour Golf" is specific; "DP World Tour Golf" alone is generic).
+                    #      Strip any leading "Live:" broadcast prefix first.
+                    #   2. Fall back to subtitle when the title is generic AND the subtitle
+                    #      looks like an actual event name (not a round/day indicator).
+                    #   3. Fall back to the generic title, then ESPN event_name, then sub.label.
+                    #
+                    # This prevents a mislabelled subtitle (e.g. a PGA program subtitle
+                    # appearing on a DP World Tour channel) from overriding a correct title.
+                    _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
+                    _sub = epg_subtitle.strip()
+                    _is_round = bool(re.match(
+                        r'^(round|day|session|hole|week)\s*(\d+|one|two|three|four|final)$',
+                        _sub, re.IGNORECASE
+                    ))
+                    # Title is "specific" if it contains more than just the bare league term
+                    _title_is_generic = not _title_clean or any(
+                        _title_clean.lower() == bt.lower() for bt in base_terms
+                    )
+                    if not _title_is_generic:
+                        display_name = _title_clean
+                    elif _sub and not _is_round:
+                        display_name = _sub
+                    else:
+                        display_name = _title_clean
+                    display_name = display_name or event_name or sub.label
+                    log.debug("[%s] EPG match — title=%r subtitle=%r → display=%r",
+                              sub.label, epg_title, epg_subtitle, display_name)
 
-                date_str = check_date.isoformat()
-                fake_game = ESPNGame(
-                    id=f"event:{sub.espn_sport}:{sub.espn_league}:{event_id}:{date_str}",
-                    sport=sub.espn_sport,
-                    league=sub.espn_league,
-                    home_team=ESPNTeam(
-                        id="event", name=display_name, abbreviation="",
-                        short_name=display_name, location="",
-                    ),
-                    away_team=ESPNTeam(
-                        id="event", name="", abbreviation="", short_name="", location="",
-                    ),
-                    start_time=event_start,
-                )
+                    hhmm = f"{event_start.hour:02d}{event_start.minute:02d}"
+                    fake_game = ESPNGame(
+                        id=f"event:{sub.espn_sport}:{sub.espn_league}:{event_id}:{date_str}:{hhmm}",
+                        sport=sub.espn_sport,
+                        league=sub.espn_league,
+                        home_team=ESPNTeam(
+                            id="event", name=display_name, abbreviation="",
+                            short_name=display_name, location="",
+                        ),
+                        away_team=ESPNTeam(
+                            id="event", name="", abbreviation="", short_name="", location="",
+                        ),
+                        start_time=event_start,
+                    )
 
-                match = GameMatch(game=fake_game, channels=channels, program_description=description)
+                    match = GameMatch(game=fake_game, channels=channels, program_description=description)
 
-                for ep in endpoints:
-                    if ep.id not in sub.endpoints:
-                        continue
-                    scheduler.schedule_game(match, sub, ep)
-                    # Schedule today's standings alert only when event is live today
-                    if sub.standings_alert and event and today_has_coverage and not standings_scheduled:
-                        scheduler.schedule_standings(sub, ep, tz_name, {
-                            "sport": sub.espn_sport,
-                            "league": sub.espn_league,
-                            "label": sub.label,
-                            "event_name": event_name,
-                            "event_id": event_id,
-                        })
-                    scheduled_count += 1
+                    for ep in endpoints:
+                        if ep.id not in sub.endpoints:
+                            continue
+                        scheduler.schedule_game(match, sub, ep)
+                        # Schedule today's standings alert only when event is live today;
+                        # only once per subscription regardless of how many time groups exist.
+                        if sub.standings_alert and event and today_has_coverage and not standings_scheduled:
+                            scheduler.schedule_standings(sub, ep, tz_name, {
+                                "sport": sub.espn_sport,
+                                "league": sub.espn_league,
+                                "label": sub.label,
+                                "event_name": event_name,
+                                "event_id": event_id,
+                            })
+                        scheduled_count += 1
 
-                days_with_coverage += 1
-                games_seen.add(fake_game.id)
+                    if sub.standings_alert and event and today_has_coverage:
+                        standings_scheduled = True
 
-            if sub.standings_alert and event:
-                standings_scheduled = True  # noqa: F841 (prevent re-scheduling across endpoints)
+                    games_seen.add(fake_game.id)
+                    day_scheduled = True
+
+                if day_scheduled:
+                    days_with_coverage += 1
 
             if days_with_coverage:
                 log.info("[%s] %s — %d days of EPG coverage found", sub.label, event_name, days_with_coverage)

@@ -167,3 +167,82 @@ def find_event_earliest_start(
             if not exclude_terms or not _text_contains_any(haystack, exclude_terms):
                 starts.append(prog.start)
     return min(starts) if starts else None
+
+
+def find_event_time_groups(
+    event_terms: list[str],
+    programs: list[EPGProgram],
+    event_date: date,
+    exclude_terms: list[str] | None = None,
+    group_window_minutes: int = 60,
+) -> list[tuple]:
+    """
+    Return one entry per distinct broadcast window on event_date:
+      (start_time, channels, description, first_title, first_subtitle)
+
+    Live programs whose starts fall within group_window_minutes of the group's
+    anchor start are clustered together. This separates early AU/featured-group
+    coverage from the main primary-market broadcast later the same day, producing
+    one notification per distinct airtime rather than one monolithic alert.
+    """
+    from datetime import timedelta as _td
+
+    matching = []
+    for prog in programs:
+        if prog.start.date() != event_date:
+            continue
+        if not prog.is_live:
+            continue
+        haystack = f"{prog.title} {prog.subtitle}"
+        if not _text_contains_any(haystack, event_terms):
+            continue
+        if exclude_terms and _text_contains_any(haystack, exclude_terms):
+            continue
+        matching.append(prog)
+
+    if not matching:
+        return []
+
+    matching.sort(key=lambda p: p.start)
+
+    # Cluster into time windows anchored on the first program in each group
+    groups: list[tuple] = []  # (anchor_start, [EPGProgram, ...])
+    window = _td(minutes=group_window_minutes)
+    for prog in matching:
+        if groups and (prog.start - groups[-1][0]) <= window:
+            groups[-1][1].append(prog)
+        else:
+            groups.append((prog.start, [prog]))
+
+    def _sort_key(display: str) -> tuple[int, str]:
+        m = re.match(r'^(\d+)', display)
+        return (int(m.group(1)), display) if m else (10 ** 9, display)
+
+    result = []
+    for group_start, group_progs in groups:
+        seen: set[str] = set()
+        channels: list[str] = []
+        description = ""
+        first_title = ""
+        first_subtitle = ""
+        for prog in group_progs:
+            if prog.channel_name and prog.channel_name not in seen:
+                seen.add(prog.channel_name)
+                if prog.channel_number:
+                    channels.append(f"{prog.channel_number} - {prog.channel_name}")
+                else:
+                    channels.append(prog.channel_name)
+            if not description and prog.description:
+                description = prog.description
+            if not first_title:
+                first_title = prog.title
+                first_subtitle = prog.subtitle
+        result.append((
+            group_start,
+            sorted(channels, key=_sort_key),
+            description,
+            first_title,
+            first_subtitle,
+        ))
+
+    return result
