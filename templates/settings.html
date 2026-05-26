@@ -85,16 +85,15 @@
     <div class="form-row">
       <label for="dispatcharr_output_profile">Output Profile</label>
       <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
-        <select id="dispatcharr_output_profile" name="dispatcharr_output_profile" style="flex:1; min-width:180px">
-          <option value="">— None (use REST API) —</option>
-          {% if cfg.get('dispatcharr', {}).get('output_profile') %}
-          <option value="{{ cfg.get('dispatcharr', {}).get('output_profile') }}" selected>{{ cfg.get('dispatcharr', {}).get('output_profile') }}</option>
-          {% endif %}
-        </select>
+        <input type="text" id="dispatcharr_output_profile" name="dispatcharr_output_profile"
+               list="profile-suggestions" style="flex:1; min-width:180px"
+               value="{{ cfg.get('dispatcharr', {}).get('output_profile', '') }}"
+               placeholder="e.g. Default (leave empty for REST API)">
+        <datalist id="profile-suggestions"></datalist>
         <button type="button" class="btn btn-secondary btn-sm" onclick="loadOutputProfiles()">Load Profiles</button>
         <span id="profiles-load-status" class="inline-status"></span>
       </div>
-      <span class="hint">When set, EPG data is fetched from Dispatcharr's filtered XMLTV output for this profile instead of the REST API.</span>
+      <span class="hint">When set, EPG is fetched from Dispatcharr's XMLTV output for this profile. Leave empty to use the REST API. Type the profile name directly or click Load to auto-fill suggestions.</span>
     </div>
     <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
@@ -152,23 +151,6 @@
     </div>
   </section>
 </div>
-<!-- Channel Management — separate card -->
-<div class="form-card" style="margin-top:2rem">
-  <section class="form-section" style="margin-bottom:0">
-    <div class="section-header">
-      <h2>Channel Management</h2>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="loadChannels()">↻ Load from Dispatcharr</button>
-      <span id="channels-load-status" class="inline-status"></span>
-    </div>
-    <p class="hint" style="margin-bottom:1rem">
-      Override channel numbers and enable or disable individual channels.
-      Disabled channels will never appear in notifications.
-    </p>
-    <div id="channels-container">
-      <p class="hint">Click "Load from Dispatcharr" to fetch channels.</p>
-    </div>
-  </section>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -216,22 +198,20 @@
   // ── Output Profiles ──────────────────────────────────────────────────────────
 
   async function loadOutputProfiles() {
-    const select = document.getElementById('dispatcharr_output_profile');
+    const datalist = document.getElementById('profile-suggestions');
     const status = document.getElementById('profiles-load-status');
     status.textContent = 'Loading…';
     status.className = 'inline-status';
     try {
       const profiles = await apiFetch('/api/dispatcharr/output-profiles');
-      if (profiles.ok === false) {
-        status.textContent = '❌ ' + (profiles.error || 'Failed');
-        status.className = 'inline-status text-red';
+      if (!Array.isArray(profiles) || profiles.length === 0) {
+        status.textContent = (profiles && profiles.ok === false)
+          ? '❌ ' + (profiles.error || 'Failed') : 'No profiles found — type name manually';
+        status.className = (profiles && profiles.ok === false)
+          ? 'inline-status text-red' : 'inline-status';
         return;
       }
-      const current = select.value;
-      select.innerHTML = '<option value="">— None (use REST API) —</option>' +
-        profiles.map(p =>
-          `<option value="${escHtml(p.name)}"${p.name === current ? ' selected' : ''}>${escHtml(p.name)}${p.is_active ? ' ★' : ''}</option>`
-        ).join('');
+      datalist.innerHTML = profiles.map(p => `<option value="${escHtml(p.name)}">`).join('');
       status.textContent = profiles.length + ' profile' + (profiles.length === 1 ? '' : 's') + ' loaded';
       status.className = 'inline-status text-green';
       setTimeout(() => { status.textContent = ''; }, 3000);
@@ -321,124 +301,5 @@
   }
 
   loadEpgSources();
-
-  // ── Channel Management ────────────────────────────────────────────────────────
-
-  async function loadChannels() {
-    const container = document.getElementById('channels-container');
-    const status = document.getElementById('channels-load-status');
-    status.textContent = 'Loading…';
-    status.className = 'inline-status';
-    try {
-      const channels = await apiFetch('/api/channels');
-      if (channels.ok === false) {
-        status.textContent = '❌ ' + (channels.error || 'Failed');
-        status.className = 'inline-status text-red';
-        return;
-      }
-      status.textContent = channels.length + ' channels';
-      status.className = 'inline-status text-green';
-      if (!channels.length) {
-        container.innerHTML = '<p class="hint">No channels found. Is Dispatcharr configured?</p>';
-        return;
-      }
-      renderChannelsTable(channels);
-    } catch(e) {
-      status.textContent = '❌ ' + e.message;
-      status.className = 'inline-status text-red';
-    }
-  }
-
-  function renderChannelsTable(channels) {
-    const container = document.getElementById('channels-container');
-    const rows = channels.map(ch => `
-      <tr id="ch-row-${escHtml(ch.id)}">
-        <td>
-          <strong>${escHtml(ch.name)}</strong>
-          <small class="hint" style="display:block">ID: ${escHtml(ch.id)}</small>
-        </td>
-        <td style="color:var(--text-muted);font-size:.85rem">${escHtml(ch.dispatcharr_number || '—')}</td>
-        <td>
-          <input type="text" class="ch-number-input" style="width:80px"
-                 value="${escHtml(ch.number || '')}" placeholder="e.g. 100"
-                 data-ch-id="${escHtml(ch.id)}">
-        </td>
-        <td>
-          <label class="toggle-label">
-            <input type="checkbox" class="ch-enabled-input" data-ch-id="${escHtml(ch.id)}"
-                   ${ch.enabled ? 'checked' : ''}>
-            <span class="toggle-text">${ch.enabled ? 'Enabled' : 'Disabled'}</span>
-          </label>
-        </td>
-        <td>
-          <button class="btn btn-secondary btn-sm"
-                  onclick="saveChannelOverride('${escHtml(ch.id)}', this)">Save</button>
-          ${ch.has_override ? `<button class="btn btn-danger btn-sm"
-                  onclick="resetChannelOverride('${escHtml(ch.id)}', this)">Reset</button>` : ''}
-          <span class="ch-save-status inline-status" style="margin-left:.25rem"></span>
-        </td>
-      </tr>
-    `).join('');
-
-    container.innerHTML = `
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Channel</th>
-            <th>Dispatcharr #</th>
-            <th>Custom #</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-
-    // Update toggle labels on change
-    container.querySelectorAll('.ch-enabled-input').forEach(cb => {
-      cb.addEventListener('change', () => {
-        cb.closest('tr').querySelector('.toggle-text').textContent =
-          cb.checked ? 'Enabled' : 'Disabled';
-      });
-    });
-  }
-
-  async function saveChannelOverride(id, btn) {
-    const row = document.getElementById('ch-row-' + id);
-    const number = row.querySelector('.ch-number-input').value.trim();
-    const enabled = row.querySelector('.ch-enabled-input').checked;
-    const statusEl = row.querySelector('.ch-save-status');
-    btn.disabled = true;
-    try {
-      await apiFetch('/api/channels/' + encodeURIComponent(id) + '/override', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ number, enabled }),
-      });
-      statusEl.textContent = '✅';
-      statusEl.className = 'ch-save-status inline-status text-green';
-    } catch(e) {
-      statusEl.textContent = '❌';
-      statusEl.className = 'ch-save-status inline-status text-red';
-      statusEl.title = e.message;
-    }
-    btn.disabled = false;
-    setTimeout(() => { statusEl.textContent = ''; statusEl.title = ''; }, 2000);
-  }
-
-  async function resetChannelOverride(id, btn) {
-    if (!confirm('Reset channel override? This restores Dispatcharr defaults.')) return;
-    const statusEl = document.getElementById('ch-row-' + id).querySelector('.ch-save-status');
-    try {
-      await apiFetch('/api/channels/' + encodeURIComponent(id) + '/override', { method: 'DELETE' });
-      statusEl.textContent = '↺ Reset';
-      statusEl.className = 'ch-save-status inline-status';
-      setTimeout(() => loadChannels(), 800);
-    } catch(e) {
-      statusEl.textContent = '❌ ' + e.message;
-      statusEl.className = 'ch-save-status inline-status text-red';
-    }
-  }
 </script>
 {% endblock %}

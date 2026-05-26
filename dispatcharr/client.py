@@ -147,8 +147,16 @@ class DispatcharrClient:
     # ── Output profiles ───────────────────────────────────────────────────────
 
     async def get_output_profiles(self) -> list[dict]:
+        url = f"{self.base_url}/api/core/outputprofiles/"
         try:
-            data = await self._get("/api/core/outputprofiles/")
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get(url, headers=self.headers)
+                r.raise_for_status()
+                body = r.content.strip()
+                if not body:
+                    log.warning("Output profiles endpoint returned empty body")
+                    return []
+                data = r.json()
             items = data if isinstance(data, list) else data.get("results", [])
             return [
                 {"id": p.get("id"), "name": p.get("name", ""), "is_active": p.get("is_active", False)}
