@@ -151,6 +151,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     # ── Event Series ──────────────────────────────────────────────────────────
     tz_name = cfg_module.get_timezone(raw)
 
+    # Remove stale event series alerts before creating new ones
+    scheduler.cleanup_stale_event_series_alerts()
+
     for sub in subs:
         if sub.scope != "event_series":
             continue

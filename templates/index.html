@@ -100,7 +100,7 @@
       let rows = '';
       for (const a of alerts) {
         const fireTime = fmt.format(new Date(a.fire_at));
-        const game = `${a.away_team} @ ${a.home_team}`;
+        const game = a.away_team ? `${a.away_team} @ ${a.home_team}` : a.home_team;
         const channels = a.channels.length ? a.channels.slice(0, 3).join(', ') : '—';
         const modeLabel = MODE_LABELS[a.mode] || a.mode;
         rows += `

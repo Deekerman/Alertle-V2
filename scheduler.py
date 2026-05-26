@@ -205,6 +205,7 @@ class AlertScheduler:
         then fires scheduled tasks as their time comes.
         """
         log.info("Scheduler starting — replaying pending alerts from DB")
+        self.cleanup_stale_event_series_alerts()
         pending = _get_pending(self._conn)
         log.info("%d pending alerts found", len(pending))
 
@@ -339,6 +340,19 @@ class AlertScheduler:
         """Called after new games are scheduled to arm any unarmed tasks."""
         for alert in _get_pending(self._conn):
             self._arm_task(alert)
+
+    def cleanup_stale_event_series_alerts(self) -> None:
+        """Delete unsent event-series and standings alerts whose fire_at has passed."""
+        now_str = datetime.now(timezone.utc).isoformat()
+        cur = self._conn.execute(
+            "DELETE FROM scheduled_alerts WHERE sent=0 "
+            "AND (game_id LIKE 'event:%' OR id LIKE 'standings:%') "
+            "AND fire_at <= ?",
+            (now_str,)
+        )
+        self._conn.commit()
+        if cur.rowcount:
+            log.info("Cleaned up %d stale event series alerts", cur.rowcount)
 
     def list_pending(self) -> list[dict]:
         """Return serializable pending alerts sorted by fire time — used by the dashboard."""
