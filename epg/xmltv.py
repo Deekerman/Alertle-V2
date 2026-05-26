@@ -89,7 +89,7 @@ async def fetch_xmltv_channels(url: str, headers: dict | None = None) -> list[di
     return channels
 
 
-
+def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
     """Parse raw XMLTV XML bytes into EPGProgram list."""
     try:
         root = ET.fromstring(content)
