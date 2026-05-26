@@ -3,15 +3,15 @@ Alertle-V2 — EPG matcher.
 
 Given an ESPNGame, finds matching EPG programs by:
 1. Time proximity  — program starts within ±45 min of ESPN game time
-2. Text confirmation — team names appear in title or subtitle (NOT description,
-   to avoid false positives from news/rerun channels that mention city names)
+2. Text confirmation — terms for BOTH teams must appear in subtitle
+   (title is typically generic like "NHL Hockey"; subtitle has the teams)
 """
 from __future__ import annotations
 
 import re
 from datetime import timedelta
 
-from models import EPGProgram, ESPNGame
+from models import EPGProgram, ESPNGame, ESPNTeam
 
 MATCH_WINDOW_MINUTES = 45
 
@@ -40,15 +40,10 @@ def _text_contains_any(text: str, terms: list[str]) -> bool:
     return False
 
 
-def _search_terms_for_game(game: ESPNGame) -> list[str]:
-    """Build a list of strings to look for in EPG title/subtitle."""
-    terms = []
-    for team in (game.home_team, game.away_team):
-        terms.append(team.name)          # "Toronto Maple Leafs"
-        terms.append(team.short_name)    # "Maple Leafs"
-        terms.append(team.location)      # "Toronto"
-        terms.append(team.abbreviation)  # "TOR"
-    return [t for t in terms if t.strip()]
+def _terms_for_team(team: ESPNTeam) -> list[str]:
+    """Search terms for one team: full name, short name, location, abbreviation."""
+    return [t for t in [team.name, team.short_name, team.location, team.abbreviation]
+            if t and t.strip()]
 
 
 def find_channels_for_game(
@@ -62,10 +57,13 @@ def find_channels_for_game(
 
     A program matches when:
       - Its start time is within ±MATCH_WINDOW_MINUTES of the game's start_time
-      - At least one team name (or location/abbreviation) appears in
-        title or subtitle (description is intentionally excluded)
+      - At least one term for the HOME team appears in title+subtitle AND
+        at least one term for the AWAY team appears in title+subtitle
+        (requiring both teams eliminates false positives from channels that
+        happen to mention one city/team name for an unrelated reason)
     """
-    search_terms = _search_terms_for_game(game)
+    home_terms = _terms_for_team(game.home_team)
+    away_terms = _terms_for_team(game.away_team)
     window = timedelta(minutes=MATCH_WINDOW_MINUTES)
     # Map channel_name → display string (to deduplicate by channel, keep first number seen)
     matched: dict[str, str] = {}
@@ -76,13 +74,16 @@ def find_channels_for_game(
         if delta > window:
             continue
 
-        # 2. Text confirmation — title + subtitle only
+        # 2. Both teams must appear — title + subtitle only (description excluded)
         haystack = f"{prog.title} {prog.subtitle}"
-        if _text_contains_any(haystack, search_terms):
-            if prog.channel_name and prog.channel_name not in matched:
-                if prog.channel_number:
-                    matched[prog.channel_name] = f"{prog.channel_number} - {prog.channel_name}"
-                else:
-                    matched[prog.channel_name] = prog.channel_name
+        if not (_text_contains_any(haystack, home_terms) and
+                _text_contains_any(haystack, away_terms)):
+            continue
+
+        if prog.channel_name and prog.channel_name not in matched:
+            if prog.channel_number:
+                matched[prog.channel_name] = f"{prog.channel_number} - {prog.channel_name}"
+            else:
+                matched[prog.channel_name] = prog.channel_name
 
     return sorted(matched.values())
