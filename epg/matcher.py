@@ -90,4 +90,8 @@ def find_channels_for_game(
         if not first_description and prog.description:
             first_description = prog.description
 
-    return sorted(matched.values()), first_description
+    def _sort_key(display: str) -> tuple[int, str]:
+        m = re.match(r'^(\d+)', display)
+        return (int(m.group(1)), display) if m else (10 ** 9, display)
+
+    return sorted(matched.values(), key=_sort_key), first_description
