@@ -1,19 +1,20 @@
-/* Alertle-V2 — Dark theme */
+/* Alertle-V2 — Dark green theme */
 
 :root {
-  --bg:       #0f1117;
-  --surface:  #1a1d27;
-  --surface2: #22263a;
-  --border:   #2e3250;
-  --accent:   #5b8dee;
-  --accent2:  #3d6fd4;
-  --text:     #e0e4f0;
-  --text-dim:  #8891b5;
-  --text-muted:#8891b5;
-  --green:    #3ecf8e;
-  --red:      #f05d5d;
-  --radius:   8px;
-  --shadow:   0 2px 12px rgba(0,0,0,.4);
+  --bg:        #0c110d;
+  --surface:   #141c15;
+  --surface2:  #1c2a1e;
+  --border:    #2a3d2c;
+  --accent:    #2ea84e;
+  --accent2:   #1f7d39;
+  --text:      #ddeedd;
+  --text-dim:  #7a9e7e;
+  --text-muted:#7a9e7e;
+  --green:     #3ecf8e;
+  --red:       #e05555;
+  --turtle-red:#cc1f1f;
+  --radius:    8px;
+  --shadow:    0 2px 14px rgba(0,0,0,.5);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,12 +36,13 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   gap: 2rem;
-  padding: .75rem 2rem;
+  padding: .6rem 2rem;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent2);
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,.5);
 }
 
 .nav-brand {
@@ -48,6 +50,14 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.nav-logo {
+  height: 36px;
+  width: auto;
+  display: block;
 }
 
 .nav-links {
@@ -112,6 +122,7 @@ a:hover { text-decoration: underline; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
   border-radius: var(--radius);
   padding: 1.25rem 1rem;
   box-shadow: var(--shadow);
@@ -153,6 +164,7 @@ a:hover { text-decoration: underline; }
 .btn:disabled { opacity: .4; cursor: default; }
 
 .btn-primary  { background: var(--accent); color: #fff; }
+.btn-primary:hover { opacity: 1; background: var(--accent2); }
 .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
 .btn-danger   { background: transparent; color: var(--red); border: 1px solid var(--red); }
 .btn-sm { padding: .3rem .7rem; font-size: .8rem; }
@@ -202,9 +214,9 @@ a:hover { text-decoration: underline; }
 }
 
 .badge--type {
-  background: rgba(91,141,238,.15);
+  background: rgba(46,168,78,.15);
   color: var(--accent);
-  border-color: rgba(91,141,238,.3);
+  border-color: rgba(46,168,78,.3);
 }
 
 /* ── Forms ──────────────────────────────────────────────────────────────────── */
@@ -225,7 +237,7 @@ a:hover { text-decoration: underline; }
   margin-bottom: 1rem;
   padding-bottom: .5rem;
   border-bottom: 1px solid var(--border);
-  color: var(--text-dim);
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -267,6 +279,7 @@ textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(46,168,78,.15);
 }
 
 input[type="checkbox"], input[type="radio"] {

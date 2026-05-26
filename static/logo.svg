@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110">
+  <!-- ── Turtle head (left side) ── -->
+  <!-- Antennas -->
+  <line x1="37" y1="16" x2="29" y2="2" stroke="#b0b8c8" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="29" cy="1.5" r="2.5" fill="#d8dde8"/>
+  <line x1="61" y1="16" x2="69" y2="2" stroke="#b0b8c8" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="69" cy="1.5" r="2.5" fill="#d8dde8"/>
+
+  <!-- Antenna nub -->
+  <ellipse cx="49" cy="17" rx="6" ry="3.5" fill="#1a1a1a"/>
+
+  <!-- Cap dome -->
+  <ellipse cx="49" cy="18" rx="24" ry="14" fill="#cc1f1f"/>
+  <!-- Cap brim -->
+  <ellipse cx="49" cy="29" rx="28" ry="6" fill="#b01a1a"/>
+  <!-- Cap A -->
+  <text x="49" y="26" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-size="13" fill="white">A</text>
+
+  <!-- Head -->
+  <ellipse cx="49" cy="66" rx="32" ry="28" fill="#4ec44a"/>
+  <!-- Spots -->
+  <ellipse cx="35" cy="57" rx="3.5" ry="2.5" fill="#3aaa36" opacity=".55"/>
+  <ellipse cx="63" cy="55" rx="3" ry="2" fill="#3aaa36" opacity=".55"/>
+  <!-- Belly -->
+  <ellipse cx="49" cy="77" rx="21" ry="15" fill="#c8d96a"/>
+
+  <!-- Glasses lenses -->
+  <circle cx="35" cy="63" r="11" fill="#88cc44"/>
+  <circle cx="63" cy="63" r="11" fill="#88cc44"/>
+  <!-- Frames -->
+  <circle cx="35" cy="63" r="11" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <circle cx="63" cy="63" r="11" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <line x1="46" y1="63" x2="52" y2="63" stroke="#1a1a1a" stroke-width="2"/>
+  <line x1="24" y1="61" x2="24" y2="65" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="74" y1="61" x2="74" y2="65" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Bell pupils -->
+  <circle cx="35" cy="63" r="6" fill="#dd2020"/>
+  <path d="M31.5 61.5 Q35 58 38.5 61.5 L38 65.5 Q35 67 32 65.5 Z" fill="#bb1818"/>
+  <rect x="33.5" y="66.5" width="3" height="1.2" rx=".4" fill="#bb1818"/>
+
+  <circle cx="63" cy="63" r="6" fill="#dd2020"/>
+  <path d="M59.5 61.5 Q63 58 66.5 61.5 L66 65.5 Q63 67 60 65.5 Z" fill="#bb1818"/>
+  <rect x="61.5" y="66.5" width="3" height="1.2" rx=".4" fill="#bb1818"/>
+
+  <!-- Smile -->
+  <path d="M 37 79 Q 49 88 61 79" stroke="#8a6030" stroke-width="2" fill="#e8905a" stroke-linecap="round"/>
+
+  <!-- ── "Alertle" wordmark (right side) ── -->
+  <!-- Dark outline / shadow -->
+  <text x="106" y="72" text-anchor="start"
+        font-family="Arial Black, 'Arial Bold', Gadget, sans-serif"
+        font-weight="900" font-size="42" fill="#151a14" letter-spacing="-1">Alertle</text>
+  <!-- Red fill -->
+  <text x="104" y="70" text-anchor="start"
+        font-family="Arial Black, 'Arial Bold', Gadget, sans-serif"
+        font-weight="900" font-size="42" fill="#cc1f1f" letter-spacing="-1">Alertle</text>
+</svg>

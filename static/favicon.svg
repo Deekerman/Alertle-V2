@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Antennas -->
+  <line x1="37" y1="20" x2="29" y2="4" stroke="#b0b8c8" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="29" cy="3.5" r="3" fill="#d8dde8"/>
+  <line x1="63" y1="20" x2="71" y2="4" stroke="#b0b8c8" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="71" cy="3.5" r="3" fill="#d8dde8"/>
+
+  <!-- Antenna base cap (black nub) -->
+  <ellipse cx="50" cy="21" rx="7" ry="4" fill="#1a1a1a"/>
+
+  <!-- Cap dome -->
+  <ellipse cx="50" cy="22" rx="28" ry="17" fill="#cc1f1f"/>
+  <!-- Cap brim -->
+  <ellipse cx="50" cy="35" rx="33" ry="7" fill="#b01a1a"/>
+  <!-- Cap letter A -->
+  <text x="50" y="30" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-size="16" fill="white">A</text>
+
+  <!-- Head body -->
+  <ellipse cx="50" cy="62" rx="35" ry="30" fill="#4ec44a"/>
+  <!-- Spots on head -->
+  <ellipse cx="34" cy="52" rx="4" ry="3" fill="#3aaa36" opacity=".6"/>
+  <ellipse cx="66" cy="50" rx="3.5" ry="2.5" fill="#3aaa36" opacity=".6"/>
+  <ellipse cx="58" cy="66" rx="3" ry="2" fill="#3aaa36" opacity=".6"/>
+  <!-- Belly/chin -->
+  <ellipse cx="50" cy="74" rx="24" ry="17" fill="#c8d96a"/>
+
+  <!-- Left glass lens -->
+  <circle cx="35" cy="59" r="13" fill="#88cc44"/>
+  <!-- Right glass lens -->
+  <circle cx="65" cy="59" r="13" fill="#88cc44"/>
+  <!-- Left frame -->
+  <circle cx="35" cy="59" r="13" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+  <!-- Right frame -->
+  <circle cx="65" cy="59" r="13" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+  <!-- Bridge -->
+  <line x1="48" y1="59" x2="52" y2="59" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Temple left -->
+  <line x1="22" y1="57" x2="22" y2="61" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Temple right -->
+  <line x1="78" y1="57" x2="78" y2="61" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Left red bell pupil -->
+  <circle cx="35" cy="59" r="7" fill="#dd2020"/>
+  <!-- Bell shape left (simplified) -->
+  <path d="M31 57 Q35 53 39 57 L38 62 Q35 64 32 62 Z" fill="#bb1a1a"/>
+  <rect x="33.5" y="63" width="3" height="1.5" rx=".5" fill="#bb1a1a"/>
+  <!-- Right red bell pupil -->
+  <circle cx="65" cy="59" r="7" fill="#dd2020"/>
+  <path d="M61 57 Q65 53 69 57 L68 62 Q65 64 62 62 Z" fill="#bb1a1a"/>
+  <rect x="63.5" y="63" width="3" height="1.5" rx=".5" fill="#bb1a1a"/>
+
+  <!-- Smile -->
+  <path d="M 38 76 Q 50 86 62 76" stroke="#8a6030" stroke-width="2.5" fill="#e8905a" stroke-linecap="round"/>
+</svg>

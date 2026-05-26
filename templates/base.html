@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Alertle{% endblock %} — 🐢</title>
+  <title>{% block title %}Alertle{% endblock %} — Alertle</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <nav class="navbar">
-    <a class="nav-brand" href="/">🐢 Alertle</a>
+    <a class="nav-brand" href="/">
+      <img src="/static/logo.svg" alt="Alertle" class="nav-logo">
+    </a>
     <div class="nav-links">
       <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
       <a href="/subscriptions" class="nav-link {% if request.url.path == '/subscriptions' %}active{% endif %}">Subscriptions</a>
