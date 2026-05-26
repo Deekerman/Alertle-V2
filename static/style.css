@@ -55,9 +55,10 @@ a:hover { text-decoration: underline; }
 }
 
 .nav-logo {
-  height: 36px;
+  height: 40px;
   width: auto;
   display: block;
+  border-radius: 6px;
 }
 
 .nav-links {
