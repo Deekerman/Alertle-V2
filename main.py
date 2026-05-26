@@ -257,6 +257,24 @@ async def test_epg_source(name: str):
         return JSONResponse({"ok": False, "error": str(e)})
 
 
+# ── Channels API (read-only) ──────────────────────────────────────────────────
+
+@app.get("/api/channels")
+async def list_channels():
+    raw = cfg_module.load_config()
+    client = get_dispatcharr(raw)
+    if not client:
+        return JSONResponse({"ok": False, "error": "Dispatcharr not configured"}, status_code=400)
+    try:
+        channels = await client.get_channels()
+        return JSONResponse([
+            {"id": ch.id, "name": ch.name, "number": ch.channel_number}
+            for ch in channels
+        ])
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ── Scanner API ───────────────────────────────────────────────────────────────
 
 @app.post("/api/scan")

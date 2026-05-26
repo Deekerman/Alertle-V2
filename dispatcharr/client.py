@@ -53,7 +53,7 @@ class DispatcharrClient:
 
     async def get_channels(self) -> list[EPGChannel]:
         try:
-            data = await self._get("/api/channels/")
+            data = await self._get("/api/channels/channels/")
             channels = []
             for item in (data if isinstance(data, list) else data.get("results", [])):
                 raw_num = (item.get("channel_number") or item.get("effective_channel_number")
@@ -170,7 +170,7 @@ class DispatcharrClient:
 
     async def ping(self) -> tuple[bool, str]:
         try:
-            await self._get("/api/channels/")
+            await self._get("/api/channels/channels/")
             return True, ""
         except httpx.HTTPStatusError as e:
             return False, f"HTTP {e.response.status_code} — {e.response.reason_phrase}"

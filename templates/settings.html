@@ -83,17 +83,17 @@
       <span class="hint">Dispatcharr uses <code>X-API-Key</code> by default. Try <code>ApiKey</code> if that fails.</span>
     </div>
     <div class="form-row">
-      <label for="dispatcharr_output_profile">Output Profile</label>
+      <label for="dispatcharr_output_profile">Channel Profile</label>
       <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
         <input type="text" id="dispatcharr_output_profile" name="dispatcharr_output_profile"
                list="profile-suggestions" style="flex:1; min-width:180px"
                value="{{ cfg.get('dispatcharr', {}).get('output_profile', '') }}"
-               placeholder="e.g. Default (leave empty for REST API)">
+               placeholder="Leave empty to use REST API">
         <datalist id="profile-suggestions"></datalist>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="loadOutputProfiles()">Load Profiles</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loadOutputProfiles()">Load</button>
         <span id="profiles-load-status" class="inline-status"></span>
       </div>
-      <span class="hint">When set, EPG is fetched from Dispatcharr's XMLTV output for this profile. Leave empty to use the REST API. Type the profile name directly or click Load to auto-fill suggestions.</span>
+      <span class="hint">Dispatcharr channel profile name. When set, EPG is fetched from <code>/output/epg/{profile}/</code> (XMLTV, includes channel numbers). Leave empty to use the REST API.</span>
     </div>
     <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
@@ -148,6 +148,22 @@
       </div>
       <button type="button" class="btn btn-secondary" onclick="addEpgSource()" style="align-self:flex-end">Add</button>
       <span id="epg-add-status" class="inline-status"></span>
+    </div>
+  </section>
+</div>
+<!-- Dispatcharr Channels — read-only viewer -->
+<div class="form-card" style="margin-top:2rem">
+  <section class="form-section" style="margin-bottom:0">
+    <div class="section-header">
+      <h2>Dispatcharr Channels</h2>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="loadChannels()">↻ Load Channels</button>
+      <span id="channels-load-status" class="inline-status"></span>
+    </div>
+    <p class="hint" style="margin-bottom:1rem">
+      Channels available in Dispatcharr. These are matched against EPG programs when building notifications.
+    </p>
+    <div id="channels-container">
+      <p class="hint">Click "Load Channels" to fetch from Dispatcharr.</p>
     </div>
   </section>
 </div>
@@ -301,5 +317,49 @@
   }
 
   loadEpgSources();
+
+  // ── Dispatcharr Channels ──────────────────────────────────────────────────────
+
+  async function loadChannels() {
+    const container = document.getElementById('channels-container');
+    const status = document.getElementById('channels-load-status');
+    status.textContent = 'Loading…';
+    status.className = 'inline-status';
+    try {
+      const data = await apiFetch('/api/channels');
+      if (data.ok === false) {
+        status.textContent = '❌ ' + (data.error || 'Failed');
+        status.className = 'inline-status text-red';
+        return;
+      }
+      const channels = data;
+      status.textContent = channels.length + ' channels';
+      status.className = 'inline-status text-green';
+      if (!channels.length) {
+        container.innerHTML = '<p class="hint">No channels returned. Check Dispatcharr is configured and reachable.</p>';
+        return;
+      }
+      // Sort by channel number numerically
+      channels.sort((a, b) => {
+        const na = parseFloat(a.number) || Infinity;
+        const nb = parseFloat(b.number) || Infinity;
+        return na - nb || a.name.localeCompare(b.name);
+      });
+      container.innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Channel Name</th><th>ID</th></tr></thead>
+          <tbody>${channels.map(ch => `
+            <tr>
+              <td style="font-variant-numeric:tabular-nums">${escHtml(ch.number || '—')}</td>
+              <td>${escHtml(ch.name)}</td>
+              <td style="color:var(--text-muted);font-size:.85rem">${escHtml(ch.id)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+      status.className = 'inline-status text-red';
+    }
+  }
 </script>
 {% endblock %}
