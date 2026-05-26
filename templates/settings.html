@@ -167,6 +167,26 @@
     </div>
   </section>
 </div>
+<!-- Logs Download -->
+<div class="form-card" style="margin-top:2rem">
+  <section class="form-section" style="margin-bottom:0">
+    <h2>Logs</h2>
+    <p class="hint" style="margin-bottom:1rem">
+      Download the application log filtered to a minimum severity level.
+      Use <strong>DEBUG</strong> to capture full EPG matching detail; use
+      <strong>INFO</strong> for day-to-day operation summaries.
+    </p>
+    <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap">
+      <select id="log-level" style="width:auto">
+        <option value="DEBUG">DEBUG — everything</option>
+        <option value="INFO" selected>INFO — normal operations</option>
+        <option value="WARNING">WARNING — problems only</option>
+        <option value="ERROR">ERROR — errors only</option>
+      </select>
+      <button type="button" class="btn btn-secondary" onclick="downloadLogs()">⬇ Download Logs</button>
+    </div>
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -360,6 +380,16 @@
       status.textContent = '❌ ' + e.message;
       status.className = 'inline-status text-red';
     }
+  }
+
+  function downloadLogs() {
+    const level = document.getElementById('log-level').value;
+    const a = document.createElement('a');
+    a.href = `/api/logs?level=${level}`;
+    a.download = `alertle-${level.toLowerCase()}.log`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 </script>
 {% endblock %}

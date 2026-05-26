@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import logging.handlers
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,16 @@ from scanner import daily_scan_loop, run_scan
 from scheduler import AlertScheduler
 
 log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Also write all logs to a rotating file so they can be downloaded from the UI.
+_LOG_PATH = Path("alertle.log")
+_file_handler = logging.handlers.RotatingFileHandler(
+    _LOG_PATH, maxBytes=5 * 1024 * 1024, backupCount=2, encoding="utf-8"
+)
+_file_handler.setLevel(logging.DEBUG)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logging.getLogger().addHandler(_file_handler)
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
@@ -327,6 +337,40 @@ async def test_pending_alert(alert_id: str):
     except Exception as e:
         log.exception("Test alert failed")
         return JSONResponse({"ok": False, "error": str(e)})
+
+
+@app.get("/api/logs")
+async def download_logs(level: str = "INFO"):
+    """Return the log file filtered to the requested level and above."""
+    from fastapi.responses import PlainTextResponse
+    level_order = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
+    min_rank = level_order.get(level.upper(), 1)
+
+    lines: list[str] = []
+    for path in [Path("alertle.log.1"), Path("alertle.log")]:   # older first
+        if path.exists():
+            try:
+                with path.open(encoding="utf-8", errors="replace") as f:
+                    lines.extend(f.readlines())
+            except Exception:
+                pass
+
+    filtered = []
+    for line in lines:
+        parts = line.split(" ", 2)
+        if len(parts) >= 3:
+            lvl = parts[1].rstrip(":")
+            if level_order.get(lvl, 99) >= min_rank:
+                filtered.append(line)
+        else:
+            filtered.append(line)   # keep unparseable lines
+
+    body = "".join(filtered) if filtered else f"No {level} (or above) log entries found.\n"
+    filename = f"alertle-{level.lower()}.log"
+    return PlainTextResponse(
+        body,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/status")
