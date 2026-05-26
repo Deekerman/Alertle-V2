@@ -23,15 +23,18 @@ log = logging.getLogger(__name__)
 # How many days ahead to scan
 LOOKAHEAD_DAYS = 7
 
-# Base EPG search terms per event-series league (augmented with event name at runtime)
+# Base EPG search terms per event-series league (augmented with event name at runtime).
+# These must match the exact phrasing used in EPG title/subtitle fields.
+# Verified against user's actual XMLTV feed (Golf Channel uses "PGA Tour Golf" as title;
+# Sky Sports Golf uses event name first, e.g. "Charles Schwab Challenge, PGA Tour Golf").
 EVENT_BASE_TERMS: dict[tuple[str, str], list[str]] = {
-    ("golf",   "pga"):  ["Golf", "PGA"],
-    ("golf",   "lpga"): ["Golf", "LPGA"],
-    ("golf",   "eur"):  ["Golf", "European Tour", "DP World"],
+    ("golf",   "pga"):  ["PGA Tour Golf", "PGA Tour"],
+    ("golf",   "lpga"): ["LPGA Tour Golf", "LPGA"],
+    ("golf",   "eur"):  ["DP World Tour Golf", "DP World Tour"],
     ("racing", "f1"):   ["Formula 1", "F1", "Formula One", "Grand Prix"],
     ("mma",    "ufc"):  ["UFC", "MMA"],
-    ("tennis", "atp"):  ["Tennis", "ATP"],
-    ("tennis", "wta"):  ["Tennis", "WTA"],
+    ("tennis", "atp"):  ["ATP Tennis", "ATP Tour"],
+    ("tennis", "wta"):  ["WTA Tennis", "WTA Tour"],
 }
 
 
@@ -146,64 +149,89 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
             games_seen.add(game.id)
 
     # ── Event Series ──────────────────────────────────────────────────────────
-    today_utc = now.date()
     tz_name = cfg_module.get_timezone(raw)
 
     for sub in subs:
         if sub.scope != "event_series":
             continue
         try:
-            event = await get_active_event(sub.espn_sport, sub.espn_league)
-            if not event:
-                log.info("[%s] No active event for %s/%s", sub.label, sub.espn_sport, sub.espn_league)
+            base_terms = EVENT_BASE_TERMS.get((sub.espn_sport, sub.espn_league), [])
+            if not base_terms:
+                log.warning("[%s] No EPG terms defined for %s/%s", sub.label, sub.espn_sport, sub.espn_league)
                 continue
 
-            event_name = event["name"]
-            base_terms = EVENT_BASE_TERMS.get((sub.espn_sport, sub.espn_league), [])
-            event_terms = base_terms + ([event_name] if event_name else [])
+            # Try ESPN for current event name — used for standings and ID, not required for EPG matching
+            event = await get_active_event(sub.espn_sport, sub.espn_league)
+            event_name = event["name"] if event else sub.label
+            event_id = event["id"] if event else sub.espn_league
 
-            channels, description = find_channels_for_event(event_terms, epg_programs, today_utc)
-            if not channels:
-                no_channel_count += 1
-                log.debug("[%s] No EPG channel found for event: %s", sub.label, event_name)
+            # Add ESPN event name as an extra EPG search term when available
+            event_terms = list(base_terms)
+            if event and event_name and event_name not in event_terms:
+                event_terms.append(event_name)
 
-            # Determine start time: earliest EPG match today, or noon UTC as fallback
-            earliest = find_event_earliest_start(event_terms, epg_programs, today_utc)
-            event_start = earliest if earliest else now.replace(hour=12, minute=0, second=0, microsecond=0)
+            # Scan EVERY day in the lookahead window — golf/F1/etc. have multi-day
+            # events starting later in the week, so checking only today misses them.
+            days_with_coverage = 0
+            standings_scheduled = False
 
-            today_str = today_utc.isoformat()
-            fake_game = ESPNGame(
-                id=f"event:{sub.espn_sport}:{sub.espn_league}:{event['id']}:{today_str}",
-                sport=sub.espn_sport,
-                league=sub.espn_league,
-                home_team=ESPNTeam(
-                    id="event", name=event_name, abbreviation="",
-                    short_name=event_name, location="",
-                ),
-                away_team=ESPNTeam(
-                    id="event", name="", abbreviation="", short_name="", location="",
-                ),
-                start_time=event_start,
-            )
+            for day_offset in range(LOOKAHEAD_DAYS):
+                check_dt = now + timedelta(days=day_offset)
+                check_date = check_dt.date()
 
-            match = GameMatch(game=fake_game, channels=channels, program_description=description)
-
-            for ep in endpoints:
-                if ep.id not in sub.endpoints:
+                channels, description = find_channels_for_event(event_terms, epg_programs, check_date)
+                if not channels:
                     continue
-                scheduler.schedule_game(match, sub, ep)
-                if sub.standings_alert:
-                    scheduler.schedule_standings(sub, ep, tz_name, {
-                        "sport": sub.espn_sport,
-                        "league": sub.espn_league,
-                        "label": sub.label,
-                        "event_name": event_name,
-                        "event_id": event["id"],
-                    })
-                scheduled_count += 1
 
-            games_seen.add(fake_game.id)
-            log.info("[%s] Event: %s — %d channels", sub.label, event_name, len(channels))
+                earliest = find_event_earliest_start(event_terms, epg_programs, check_date)
+                event_start = earliest if earliest else check_dt.replace(
+                    hour=12, minute=0, second=0, microsecond=0
+                )
+
+                date_str = check_date.isoformat()
+                fake_game = ESPNGame(
+                    id=f"event:{sub.espn_sport}:{sub.espn_league}:{event_id}:{date_str}",
+                    sport=sub.espn_sport,
+                    league=sub.espn_league,
+                    home_team=ESPNTeam(
+                        id="event", name=event_name, abbreviation="",
+                        short_name=event_name, location="",
+                    ),
+                    away_team=ESPNTeam(
+                        id="event", name="", abbreviation="", short_name="", location="",
+                    ),
+                    start_time=event_start,
+                )
+
+                match = GameMatch(game=fake_game, channels=channels, program_description=description)
+
+                for ep in endpoints:
+                    if ep.id not in sub.endpoints:
+                        continue
+                    scheduler.schedule_game(match, sub, ep)
+                    # Schedule today's standings alert once per endpoint (not per day)
+                    if sub.standings_alert and event and not standings_scheduled:
+                        scheduler.schedule_standings(sub, ep, tz_name, {
+                            "sport": sub.espn_sport,
+                            "league": sub.espn_league,
+                            "label": sub.label,
+                            "event_name": event_name,
+                            "event_id": event_id,
+                        })
+                    scheduled_count += 1
+
+                days_with_coverage += 1
+                games_seen.add(fake_game.id)
+
+            if sub.standings_alert and event:
+                standings_scheduled = True  # noqa: F841 (prevent re-scheduling across endpoints)
+
+            if days_with_coverage:
+                log.info("[%s] %s — %d days of EPG coverage found", sub.label, event_name, days_with_coverage)
+            else:
+                no_channel_count += 1
+                log.info("[%s] No EPG coverage found for %s in next %d days",
+                         sub.label, event_name, LOOKAHEAD_DAYS)
 
         except Exception as e:
             log.error("Event series scan failed for %s: %s", sub.label, e)
