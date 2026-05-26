@@ -78,6 +78,9 @@ class GameMatch:
     game: ESPNGame
     channels: list[str] = field(default_factory=list)   # channel names from EPG
     program_description: str = ""                        # first EPG program description
+    schedule: list[dict] = field(default_factory=list)
+    # schedule: [{"start": "<ISO datetime UTC>", "channels": [...]}, ...]
+    # populated for event_series; empty for regular team/league games
 
 
 # ── Config models ─────────────────────────────────────────────────────────────

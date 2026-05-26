@@ -78,6 +78,31 @@ def format_game_time(dt: datetime, tz_name: str) -> str:
         return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _format_schedule(schedule: list[dict], tz_name: str) -> str:
+    """
+    Format a broadcast schedule for event series notifications.
+    Each window becomes one line: "8:00 AM  Channel A, Channel B"
+    """
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = None
+    lines = []
+    for entry in schedule:
+        try:
+            start = datetime.fromisoformat(entry["start"])
+            if tz:
+                local = start.astimezone(tz)
+                time_part = local.strftime("%-I:%M %p")
+            else:
+                time_part = start.strftime("%H:%M UTC")
+            channels = ", ".join(entry.get("channels", []))
+            lines.append(f"{time_part}  {channels}")
+        except Exception:
+            continue
+    return "\n".join(lines)
+
+
 def build_game_lines(
     match: GameMatch,
     endpoint: Endpoint,
@@ -98,7 +123,10 @@ def build_game_lines(
     else:
         title = f"{game.away_team.name} vs {game.home_team.name}"
     time_str = format_game_time(game.start_time, tz_name)
-    channels_str = "\n".join(match.channels) if match.channels else ""
+    if is_event and match.schedule:
+        channels_str = _format_schedule(match.schedule, tz_name)
+    else:
+        channels_str = "\n".join(match.channels) if match.channels else ""
 
     venue = ""
     if game.venue:

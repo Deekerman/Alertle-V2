@@ -494,6 +494,7 @@ def _serialise_match(match: GameMatch) -> str:
         },
         "channels": match.channels,
         "program_description": match.program_description,
+        "schedule": match.schedule,
     }
     return json.dumps(data)
 
@@ -529,6 +530,7 @@ def _deserialise_match(json_str: str) -> GameMatch:
         game=game,
         channels=data.get("channels", []),
         program_description=data.get("program_description", ""),
+        schedule=data.get("schedule", []),
     )
 
 
