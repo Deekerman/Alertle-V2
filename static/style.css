@@ -61,6 +61,14 @@ a:hover { text-decoration: underline; }
   border-radius: 6px;
 }
 
+.nav-brand-name {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #cc1f1f;
+  letter-spacing: -.5px;
+  font-family: Arial Black, 'Arial Bold', sans-serif;
+}
+
 .nav-links {
   display: flex;
   gap: 1.5rem;
