@@ -36,19 +36,31 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
     if mode == "game_summary":
         ep_t = endpoint._raw.get("game_summary_template", "")
         if ep_t:
+            log.debug("Template source: endpoint override (game_summary) for %s", endpoint.id)
             return ep_t
         import config as _cfg
         raw = _cfg.load_config()
         nd = raw.get("notification_defaults", {})
-        return nd.get("game_summary_template", DEFAULT_GAME_SUMMARY_TEMPLATE)
+        gs_t = nd.get("game_summary_template", "")
+        if gs_t:
+            log.debug("Template source: global game_summary_template for %s", endpoint.id)
+            return gs_t
+        log.debug("Template source: built-in DEFAULT_GAME_SUMMARY_TEMPLATE for %s", endpoint.id)
+        return DEFAULT_GAME_SUMMARY_TEMPLATE
     else:
         ep_t = endpoint._raw.get("notification_template", "")
         if ep_t:
+            log.debug("Template source: endpoint override for %s", endpoint.id)
             return ep_t
         import config as _cfg
         raw = _cfg.load_config()
         nd = raw.get("notification_defaults", {})
-        return nd.get("template", DEFAULT_TEMPLATE)
+        g_t = nd.get("template", "")
+        if g_t:
+            log.debug("Template source: global notification_defaults.template for %s", endpoint.id)
+            return g_t
+        log.debug("Template source: built-in DEFAULT_TEMPLATE for %s", endpoint.id)
+        return DEFAULT_TEMPLATE
 
 
 def render_template(template: str, vars: dict) -> str:
@@ -192,6 +204,7 @@ def build_game_lines(
         "sport":        game.sport,
     }
     rendered = render_template(template, vars_map)
+    log.debug("Rendered notification [%s/%s]: %r", endpoint.id, mode, rendered[:300])
 
     return {
         "title":     title,
