@@ -45,6 +45,8 @@
   <div class="section-header">
     <h2>Upcoming Notifications</h2>
     <button class="btn btn-secondary btn-sm" onclick="loadAlerts()">↻ Refresh</button>
+    <button class="btn btn-secondary btn-sm" id="cleanup-btn" onclick="cleanupStale()">🗑 Clear Stale</button>
+    <span id="cleanup-status" class="text-dim" style="font-size:.85em"></span>
   </div>
   <div id="alerts-container"><span class="text-dim">Loading…</span></div>
 </div>
@@ -155,6 +157,23 @@
         btn.textContent = orig;
         btn.className = 'btn btn-secondary btn-sm';
       }, 3000);
+    }
+  }
+
+  async function cleanupStale() {
+    const btn = document.getElementById('cleanup-btn');
+    const status = document.getElementById('cleanup-status');
+    btn.disabled = true;
+    status.textContent = 'Cleaning…';
+    try {
+      const res = await apiFetch('/api/cleanup-stale-alerts', { method: 'POST' });
+      status.textContent = res.ok ? '✅ Done' : '❌ ' + (res.error || 'Error');
+      if (res.ok) loadAlerts();
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { status.textContent = ''; }, 3000);
     }
   }
 

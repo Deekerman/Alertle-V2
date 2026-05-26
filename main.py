@@ -298,6 +298,18 @@ async def pending_alerts():
     return JSONResponse(scheduler.list_pending())
 
 
+@app.post("/api/cleanup-stale-alerts")
+async def cleanup_stale_alerts():
+    if not scheduler:
+        return JSONResponse({"ok": False, "error": "Scheduler not ready"})
+    try:
+        scheduler.cleanup_stale_event_series_alerts()
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        log.exception("Stale alert cleanup failed")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
 @app.post("/api/pending-alerts/{alert_id:path}/test")
 async def test_pending_alert(alert_id: str):
     if not scheduler:
