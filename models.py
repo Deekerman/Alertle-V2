@@ -75,6 +75,7 @@ class EPGProgram:
 class GameMatch:
     game: ESPNGame
     channels: list[str] = field(default_factory=list)   # channel names from EPG
+    program_description: str = ""                        # first EPG program description
 
 
 # ── Config models ─────────────────────────────────────────────────────────────

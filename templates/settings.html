@@ -46,6 +46,16 @@
       </span>
       <span class="hint">Leave empty to use default: time, channels, venue, context, odds, score</span>
     </div>
+    <div class="form-row" style="margin-top:1rem">
+      <label for="game_summary_template">Game Summary Template</label>
+      <textarea id="game_summary_template" name="game_summary_template" rows="5"
+                style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                placeholder="🏆 {score}&#10;{time}&#10;📺 {channels}&#10;{description}">{{ cfg.get('notification_defaults', {}).get('game_summary_template', '') }}</textarea>
+      <span class="hint">
+        Used for Final Score notifications. Same variables as above, plus <code>{description}</code> (EPG program description).
+        Leave empty to use default: score, time, channels, description.
+      </span>
+    </div>
   </section>
 
   <section class="form-section">

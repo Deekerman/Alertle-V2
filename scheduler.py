@@ -329,6 +329,7 @@ def _serialise_match(match: GameMatch) -> str:
             "away_team": _team_dict(g.away_team),
         },
         "channels": match.channels,
+        "program_description": match.program_description,
     }
     return json.dumps(data)
 
@@ -360,7 +361,11 @@ def _deserialise_match(json_str: str) -> GameMatch:
         series_summary=g.get("series_summary", ""), season_context=g.get("season_context", ""),
         winner_abbrev=g.get("winner_abbrev", ""),
     )
-    return GameMatch(game=game, channels=data.get("channels", []))
+    return GameMatch(
+        game=game,
+        channels=data.get("channels", []),
+        program_description=data.get("program_description", ""),
+    )
 
 
 def _find_sub_for_game(game: ESPNGame, subs: list[Subscription], endpoint_id: str) -> Subscription:

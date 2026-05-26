@@ -116,12 +116,12 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
             if game.status == "final":
                 continue
 
-            channels = find_channels_for_game(game, epg_programs)
+            channels, description = find_channels_for_game(game, epg_programs)
             if not channels:
                 no_channel_count += 1
                 log.debug("No EPG channel found for %s vs %s", game.away_team.name, game.home_team.name)
 
-            match = GameMatch(game=game, channels=channels)
+            match = GameMatch(game=game, channels=channels, program_description=description)
 
             # Schedule for each endpoint this subscription targets
             endpoint_ids = sub.endpoints

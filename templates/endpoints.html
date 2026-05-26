@@ -174,14 +174,26 @@
           Notification Template
           <span class="hint">(optional — leave empty to use the global template from Settings)</span>
         </label>
-        <textarea id="ep-notification-template" rows="6"
+        <textarea id="ep-notification-template" rows="5"
                   style="font-family: monospace; font-size: 0.85rem; white-space: pre"
                   placeholder="Leave empty to use the global template from Settings&#10;&#10;Example:&#10;{time}&#10;📺 {channels}&#10;📍 {venue}&#10;{context}"></textarea>
         <span class="hint">
           Variables: <code>{time}</code> <code>{channels}</code> <code>{broadcast}</code>
           <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{score}</code>
-          <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
-          <code>{league}</code> <code>{sport}</code>
+          <code>{description}</code> <code>{home}</code> <code>{away}</code>
+          <code>{home_abbrev}</code> <code>{away_abbrev}</code> <code>{league}</code> <code>{sport}</code>
+        </span>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-game-summary-template">
+          Game Summary Template
+          <span class="hint">(optional — used for Final Score notifications)</span>
+        </label>
+        <textarea id="ep-game-summary-template" rows="5"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use the global game summary template&#10;&#10;Example:&#10;🏆 {score}&#10;{time}&#10;📺 {channels}&#10;{description}"></textarea>
+        <span class="hint">
+          Same variables as above. Leave empty to use Settings default.
         </span>
       </div>
 
@@ -282,8 +294,9 @@
     document.querySelectorAll('input[name="modes"]').forEach(cb => {
       cb.checked = cb.value === 'lead_time';
     });
-    // Clear notification template
+    // Clear notification templates
     document.getElementById('ep-notification-template').value = '';
+    document.getElementById('ep-game-summary-template').value = '';
   }
 
   function editEndpoint(data) {
@@ -339,8 +352,9 @@
     document.getElementById('gt-badge').value = gt.badge || '';
     document.getElementById('gt-fallback').checked = gt.fallback !== false;
 
-    // Notification template
+    // Notification templates
     document.getElementById('ep-notification-template').value = data.notification_template || '';
+    document.getElementById('ep-game-summary-template').value = data.game_summary_template || '';
 
     openModal('ep-modal');
   }
@@ -360,6 +374,7 @@
     if (!modes.length) { alert('Select at least one notification mode.'); return; }
 
     const notification_template = document.getElementById('ep-notification-template').value.trim();
+    const game_summary_template = document.getElementById('ep-game-summary-template').value.trim();
 
     const payload = {
       id: document.getElementById('ep-id').value.trim(),
@@ -371,6 +386,7 @@
       bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
       auto_record: false,
       notification_template,
+      game_summary_template,
       game_thumbs: {
         type: document.getElementById('gt-type').value,
         style: parseInt(document.getElementById('gt-style').value),

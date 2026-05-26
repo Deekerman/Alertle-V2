@@ -112,13 +112,19 @@ async def save_settings(request: Request):
     raw["game_thumbs"]["base_url"] = form.get("game_thumbs_url", "https://game-thumbs.swvn.io").strip()
     raw["game_thumbs"]["enabled"] = form.get("game_thumbs_enabled") == "on"
 
-    # Global notification template
+    # Global notification templates
     raw.setdefault("notification_defaults", {})
     template = (form.get("notification_template") or "").strip()
     if template:
         raw["notification_defaults"]["template"] = template
     else:
         raw["notification_defaults"].pop("template", None)
+
+    gs_template = (form.get("game_summary_template") or "").strip()
+    if gs_template:
+        raw["notification_defaults"]["game_summary_template"] = gs_template
+    else:
+        raw["notification_defaults"].pop("game_summary_template", None)
 
     cfg_module.save_config(raw)
     return JSONResponse({"ok": True})

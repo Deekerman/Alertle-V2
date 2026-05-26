@@ -23,16 +23,32 @@ DEFAULT_TEMPLATE = """{time}
 {odds}
 {score}"""
 
+DEFAULT_GAME_SUMMARY_TEMPLATE = """🏆 {score}
+{time}
+📺 {channels}
+{description}"""
 
-def _get_template(endpoint: Endpoint) -> str:
-    """Return the notification template: endpoint override → global config → DEFAULT_TEMPLATE."""
-    ep_template = endpoint._raw.get("notification_template", "")
-    if ep_template:
-        return ep_template
-    import config as _cfg
-    raw = _cfg.load_config()
-    nd = raw.get("notification_defaults", {})
-    return nd.get("template", DEFAULT_TEMPLATE)
+
+def _get_template(endpoint: Endpoint, mode: str = "") -> str:
+    """Return the active template for the given mode.
+    Checks endpoint override first, then global config, then built-in default.
+    """
+    if mode == "game_summary":
+        ep_t = endpoint._raw.get("game_summary_template", "")
+        if ep_t:
+            return ep_t
+        import config as _cfg
+        raw = _cfg.load_config()
+        nd = raw.get("notification_defaults", {})
+        return nd.get("game_summary_template", DEFAULT_GAME_SUMMARY_TEMPLATE)
+    else:
+        ep_t = endpoint._raw.get("notification_template", "")
+        if ep_t:
+            return ep_t
+        import config as _cfg
+        raw = _cfg.load_config()
+        nd = raw.get("notification_defaults", {})
+        return nd.get("template", DEFAULT_TEMPLATE)
 
 
 def render_template(template: str, vars: dict) -> str:
@@ -126,7 +142,7 @@ def build_game_lines(
     except Exception:
         pass
 
-    template = _get_template(endpoint)
+    template = _get_template(endpoint, mode)
     vars_map = {
         "time":         time_str,
         "channels":     channels_str,
@@ -135,6 +151,7 @@ def build_game_lines(
         "context":      context,
         "odds":         odds,
         "score":        score,
+        "description":  match.program_description,
         "home":         game.home_team.name,
         "away":         game.away_team.name,
         "home_abbrev":  game.home_team.abbreviation,

@@ -49,11 +49,11 @@ def _terms_for_team(team: ESPNTeam) -> list[str]:
 def find_channels_for_game(
     game: ESPNGame,
     programs: list[EPGProgram],
-) -> list[str]:
+) -> tuple[list[str], str]:
     """
-    Return a deduplicated, sorted list of channel strings whose EPG programs
-    match this game. Each string is formatted as "{number} - {name}" when a
-    channel number is available, otherwise just "{name}".
+    Return (channels, description) where:
+    - channels: deduplicated sorted list of "{number} - {name}" strings
+    - description: first non-empty EPG program description from matched programs
 
     A program matches when:
       - Its start time is within ±MATCH_WINDOW_MINUTES of the game's start_time
@@ -67,6 +67,7 @@ def find_channels_for_game(
     window = timedelta(minutes=MATCH_WINDOW_MINUTES)
     # Map channel_name → display string (to deduplicate by channel, keep first number seen)
     matched: dict[str, str] = {}
+    first_description = ""
 
     for prog in programs:
         # 1. Time window check
@@ -86,4 +87,7 @@ def find_channels_for_game(
             else:
                 matched[prog.channel_name] = prog.channel_name
 
-    return sorted(matched.values())
+        if not first_description and prog.description:
+            first_description = prog.description
+
+    return sorted(matched.values()), first_description
