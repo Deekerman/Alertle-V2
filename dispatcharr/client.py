@@ -16,9 +16,9 @@ log = logging.getLogger(__name__)
 
 
 class DispatcharrClient:
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self, base_url: str, api_key: str, auth_scheme: str = "Token"):
         self.base_url = base_url.rstrip("/")
-        self.headers = {"Authorization": f"Token {api_key}"}
+        self.headers = {"Authorization": f"{auth_scheme} {api_key}"}
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
         url = f"{self.base_url}{path}"
@@ -129,12 +129,14 @@ class DispatcharrClient:
 
     # ── Health check ──────────────────────────────────────────────────────────
 
-    async def ping(self) -> bool:
+    async def ping(self) -> tuple[bool, str]:
         try:
             await self._get("/api/channels/")
-            return True
-        except Exception:
-            return False
+            return True, ""
+        except httpx.HTTPStatusError as e:
+            return False, f"HTTP {e.response.status_code} — {e.response.reason_phrase}"
+        except Exception as e:
+            return False, str(e)
 
 
 def get_client(cfg: dict) -> DispatcharrClient | None:
@@ -144,4 +146,5 @@ def get_client(cfg: dict) -> DispatcharrClient | None:
     key = d.get("api_key", "").strip()
     if not url or not key:
         return None
-    return DispatcharrClient(base_url=url, api_key=key)
+    scheme = d.get("auth_scheme", "Token")
+    return DispatcharrClient(base_url=url, api_key=key, auth_scheme=scheme)

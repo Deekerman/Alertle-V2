@@ -40,11 +40,29 @@
   <button class="btn btn-primary" id="scan-btn" onclick="runScan()">Run Scan Now</button>
   <div id="scan-result" class="scan-result hidden"></div>
 </div>
+
+<div class="section">
+  <div class="section-header">
+    <h2>Upcoming Notifications</h2>
+    <button class="btn btn-secondary btn-sm" onclick="loadAlerts()">↻ Refresh</button>
+  </div>
+  <div id="alerts-container"><span class="text-dim">Loading…</span></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+  const MODE_LABELS = {
+    lead_time:    'Lead Time',
+    game_start:   'Game Start',
+    game_summary: 'Final Score',
+    digest:       'Digest',
+  };
+
+  let _tz = 'UTC';
+
   loadStatus();
+  loadAlerts();
 
   async function loadStatus() {
     try {
@@ -58,8 +76,85 @@
       document.getElementById('stat-epg-sources').textContent = data.epg_sources ?? 0;
       document.getElementById('stat-timezone').textContent = data.timezone;
       document.getElementById('stat-scan-time').textContent = data.scan_time;
+      _tz = data.timezone || 'UTC';
     } catch(e) {
       console.error('Status load failed:', e);
+    }
+  }
+
+  async function loadAlerts() {
+    const container = document.getElementById('alerts-container');
+    try {
+      const alerts = await apiFetch('/api/pending-alerts');
+      if (!alerts.length) {
+        container.innerHTML = '<p class="hint">No alerts scheduled — run a scan to populate.</p>';
+        return;
+      }
+
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        timeZone: _tz,
+        month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+      });
+
+      let rows = '';
+      for (const a of alerts) {
+        const fireTime = fmt.format(new Date(a.fire_at));
+        const game = `${a.away_team} @ ${a.home_team}`;
+        const channels = a.channels.length ? a.channels.slice(0, 3).join(', ') : '—';
+        const modeLabel = MODE_LABELS[a.mode] || a.mode;
+        rows += `
+          <tr>
+            <td>${fireTime}</td>
+            <td><strong>${game}</strong></td>
+            <td><span class="badge">${a.league}</span></td>
+            <td class="text-dim">${channels}</td>
+            <td><span class="badge">${modeLabel}</span></td>
+            <td><span class="badge badge--type">${a.endpoint_id}</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="testAlert(this, '${encodeURIComponent(a.id)}')">Test</button>
+            </td>
+          </tr>`;
+      }
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Game</th>
+              <th>League</th>
+              <th>Channels</th>
+              <th>Mode</th>
+              <th>Endpoint</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    } catch(e) {
+      container.innerHTML = '<p class="hint text-red">Failed to load alerts: ' + e.message + '</p>';
+    }
+  }
+
+  async function testAlert(btn, encodedId) {
+    const alertId = decodeURIComponent(encodedId);
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await apiFetch('/api/pending-alerts/' + encodedId + '/test', { method: 'POST' });
+      btn.textContent = res.ok ? '✅ Sent' : '❌ ' + (res.error || 'Error');
+      btn.className = 'btn btn-sm ' + (res.ok ? 'text-green' : 'text-red');
+    } catch(e) {
+      btn.textContent = '❌ ' + e.message;
+      btn.className = 'btn btn-sm text-red';
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.className = 'btn btn-secondary btn-sm';
+      }, 3000);
     }
   }
 
@@ -81,6 +176,7 @@
           ${s.epg_programs_fetched} EPG programs fetched
         `;
         result.className = 'scan-result scan-result--ok';
+        loadAlerts();
       } else {
         result.textContent = 'Scan failed: ' + (data.error || 'unknown error');
         result.className = 'scan-result scan-result--err';

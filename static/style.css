@@ -97,6 +97,9 @@ a:hover { text-decoration: underline; }
 .section { margin-top: 2.5rem; }
 .section h2 { font-size: 1.15rem; margin-bottom: .5rem; }
 
+.section-header { display: flex; align-items: center; gap: 1rem; margin-bottom: .75rem; }
+.section-header h2 { margin-bottom: 0; }
+
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 
 .card-grid {

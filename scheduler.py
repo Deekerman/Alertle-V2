@@ -262,6 +262,52 @@ class AlertScheduler:
         for alert in _get_pending(self._conn):
             self._arm_task(alert)
 
+    def list_pending(self) -> list[dict]:
+        """Return serializable pending alerts sorted by fire time — used by the dashboard."""
+        result = []
+        for alert in _get_pending(self._conn):
+            try:
+                match = _deserialise_match(alert.game_match_json)
+                g = match.game
+                result.append({
+                    "id": alert.id,
+                    "endpoint_id": alert.endpoint_id,
+                    "mode": alert.mode,
+                    "fire_at": alert.fire_at.isoformat(),
+                    "game_id": alert.game_id,
+                    "away_team": g.away_team.name,
+                    "home_team": g.home_team.name,
+                    "sport": g.sport,
+                    "league": g.league.upper(),
+                    "channels": match.channels,
+                    "game_start": g.start_time.isoformat(),
+                })
+            except Exception as e:
+                log.warning("Failed to deserialise alert %s: %s", alert.id, e)
+        return sorted(result, key=lambda x: x["fire_at"])
+
+    async def test_fire(self, alert_id: str) -> bool:
+        """Dispatch an alert immediately without marking it sent (test mode)."""
+        row = self._conn.execute(
+            "SELECT endpoint_id, mode, game_match_json FROM scheduled_alerts WHERE id=?",
+            (alert_id,)
+        ).fetchone()
+        if not row:
+            return False
+        endpoint_id, mode, match_json = row
+
+        raw = cfg_module.load_config()
+        endpoint = cfg_module.get_endpoint_by_id(endpoint_id, raw)
+        if not endpoint:
+            log.warning("Endpoint %s not found — cannot test alert %s", endpoint_id, alert_id)
+            return False
+
+        match = _deserialise_match(match_json)
+        sub = _find_sub_for_game(match.game, cfg_module.get_subscriptions(raw), endpoint_id)
+        tz_name = cfg_module.get_timezone(raw)
+        await _dispatch(endpoint, mode, [(match, sub)], tz_name)
+        return True
+
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
 

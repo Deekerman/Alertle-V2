@@ -106,6 +106,7 @@ async def save_settings(request: Request):
     raw.setdefault("dispatcharr", {})
     raw["dispatcharr"]["url"] = form.get("dispatcharr_url", "").strip()
     raw["dispatcharr"]["api_key"] = form.get("dispatcharr_api_key", "").strip()
+    raw["dispatcharr"]["auth_scheme"] = form.get("dispatcharr_auth_scheme", "Token")
 
     raw.setdefault("game_thumbs", {})
     raw["game_thumbs"]["base_url"] = form.get("game_thumbs_url", "https://game-thumbs.swvn.io").strip()
@@ -122,14 +123,15 @@ async def save_settings(request: Request):
 
 
 @app.get("/api/settings/test-dispatcharr")
-async def test_dispatcharr(url: str = "", api_key: str = ""):
+async def test_dispatcharr(url: str = "", api_key: str = "", auth_scheme: str = ""):
     """
     Test Dispatcharr connectivity.
-    Accepts url/api_key as query params (from the unsaved form) or
+    Accepts url/api_key/auth_scheme as query params (from the unsaved form) or
     falls back to the saved config if params are empty.
     """
     if url and api_key:
-        client: DispatcharrClient | None = DispatcharrClient(base_url=url, api_key=api_key)
+        scheme = auth_scheme or "Token"
+        client: DispatcharrClient | None = DispatcharrClient(base_url=url, api_key=api_key, auth_scheme=scheme)
     else:
         raw = cfg_module.load_config()
         client = get_dispatcharr(raw)
@@ -138,8 +140,8 @@ async def test_dispatcharr(url: str = "", api_key: str = ""):
         return JSONResponse({"ok": False, "error": "Not configured — fill in URL and API key first"})
 
     try:
-        ok = await client.ping()
-        return JSONResponse({"ok": ok, "error": None if ok else "Connected but authentication failed — check your API key"})
+        ok, err = await client.ping()
+        return JSONResponse({"ok": ok, "error": err or None})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)})
 
@@ -248,13 +250,32 @@ async def trigger_scan():
         return JSONResponse({"ok": False, "error": str(e)})
 
 
+@app.get("/api/pending-alerts")
+async def pending_alerts():
+    if not scheduler:
+        return JSONResponse([])
+    return JSONResponse(scheduler.list_pending())
+
+
+@app.post("/api/pending-alerts/{alert_id:path}/test")
+async def test_pending_alert(alert_id: str):
+    if not scheduler:
+        return JSONResponse({"ok": False, "error": "Scheduler not ready"})
+    try:
+        ok = await scheduler.test_fire(alert_id)
+        return JSONResponse({"ok": ok, "error": None if ok else "Alert not found"})
+    except Exception as e:
+        log.exception("Test alert failed")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
 @app.get("/api/status")
 async def status():
     raw = cfg_module.load_config()
     dispatcharr = get_dispatcharr(raw)
     dispatcharr_ok = False
     if dispatcharr:
-        dispatcharr_ok = await dispatcharr.ping()
+        dispatcharr_ok, _ = await dispatcharr.ping()
     return JSONResponse({
         "dispatcharr_connected": dispatcharr_ok,
         "subscriptions": len(cfg_module.get_subscriptions(raw)),

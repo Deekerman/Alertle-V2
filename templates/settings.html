@@ -80,6 +80,14 @@
              value="{{ cfg.get('dispatcharr', {}).get('api_key', '') }}"
              placeholder="Your Dispatcharr API key">
     </div>
+    <div class="form-row">
+      <label for="dispatcharr_auth_scheme">Auth Scheme</label>
+      <select id="dispatcharr_auth_scheme" name="dispatcharr_auth_scheme">
+        <option value="Token" {% if cfg.get('dispatcharr', {}).get('auth_scheme', 'Token') == 'Token' %}selected{% endif %}>Token (DRF default)</option>
+        <option value="Bearer" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Bearer' %}selected{% endif %}>Bearer (JWT / newer)</option>
+      </select>
+      <span class="hint">Try "Bearer" if "Token" returns 401 Unauthorized</span>
+    </div>
     <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
       <span id="dispatcharr-test-result" class="inline-status"></span>
@@ -161,10 +169,11 @@
     const el = document.getElementById('dispatcharr-test-result');
     const url = document.getElementById('dispatcharr_url').value.trim();
     const key = document.getElementById('dispatcharr_api_key').value.trim();
+    const scheme = document.getElementById('dispatcharr_auth_scheme').value;
     el.textContent = 'Testing…';
     el.className = 'inline-status';
     try {
-      const params = new URLSearchParams({ url, api_key: key });
+      const params = new URLSearchParams({ url, api_key: key, auth_scheme: scheme });
       const res = await apiFetch('/api/settings/test-dispatcharr?' + params);
       if (res.ok) {
         el.textContent = '✅ Connected';

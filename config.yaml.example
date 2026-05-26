@@ -8,6 +8,7 @@ settings:
 dispatcharr:
   url: "http://192.168.1.x:9191"
   api_key: "your-dispatcharr-api-key"
+  auth_scheme: "Token"   # Token (DRF default) or Bearer
 
 game_thumbs:
   base_url: "https://game-thumbs.swvn.io"
