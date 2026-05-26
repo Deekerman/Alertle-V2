@@ -27,15 +27,9 @@ async def _publish(url: str, topic: str, title: str, message: str,
         log.error("ntfy error: %s", e)
         return False
 
-def _lines_to_text(lines: dict, sport: str) -> tuple[str, str]:
+def _format_message(lines: dict, sport: str) -> tuple[str, str]:
     title = f"{_emoji(sport)} {lines['title']}"
-    parts = [lines["time"]]
-    if lines["channels"]:  parts.append(f"📺 {lines['channels']}")
-    if lines["venue"]:     parts.append(f"📍 {lines['venue']}")
-    if lines["context"]:   parts.append(lines["context"])
-    if lines["odds"]:      parts.append(f"📊 {lines['odds']}")
-    if lines["score"]:     parts.append(f"🏆 {lines['score']}")
-    return title, "\n".join(parts)
+    return title, lines.get("rendered", lines["time"])
 
 async def send_single(match: GameMatch, endpoint: Endpoint, sub: Subscription, tz_name: str,
                       mode: str = "lead_time", winner_abbrev: str = "") -> bool:
@@ -46,7 +40,7 @@ async def send_single(match: GameMatch, endpoint: Endpoint, sub: Subscription, t
         log.error("ntfy topic not configured for endpoint %s", endpoint.id)
         return False
     lines = build_game_lines(match, endpoint, sub, tz_name, mode, winner_abbrev)
-    title, message = _lines_to_text(lines, match.game.sport)
+    title, message = _format_message(lines, match.game.sport)
     return await _publish(url, topic, title, message, lines["thumb_url"])
 
 async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
@@ -59,8 +53,9 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
     bodies = []
     for match, sub in matches_subs:
         lines = build_game_lines(match, endpoint, sub, tz_name, mode)
-        _, body = _lines_to_text(lines, match.game.sport)
+        _, body = _format_message(lines, match.game.sport)
         bodies.append(body)
+
     title = f"🐢 {len(matches_subs)} Games"
     message = "\n\n".join(bodies)
     return await _publish(url, topic, title, message)

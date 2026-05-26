@@ -16,14 +16,10 @@ def _emoji(sport: str) -> str:
 def _tg_url(token: str, method: str) -> str:
     return f"https://api.telegram.org/bot{token}/{method}"
 
-def _lines_to_html(lines: dict, sport: str) -> str:
-    parts = [f"<b>{_emoji(sport)} {lines['title']}</b>", lines["time"]]
-    if lines["channels"]:  parts.append(f"📺 {lines['channels']}")
-    if lines["venue"]:     parts.append(f"📍 {lines['venue']}")
-    if lines["context"]:   parts.append(lines["context"])
-    if lines["odds"]:      parts.append(f"📊 {lines['odds']}")
-    if lines["score"]:     parts.append(f"🏆 <b>{lines['score']}</b>")
-    return "\n".join(parts)
+def _format_message(lines: dict, sport: str) -> str:
+    header = f"<b>{_emoji(sport)} {lines['title']}</b>"
+    body = lines.get("rendered", "")
+    return f"{header}\n{body}" if body else header
 
 async def _send_message(token: str, chat_id: str, text: str) -> bool:
     try:
@@ -55,7 +51,7 @@ async def send_single(match: GameMatch, endpoint: Endpoint, sub: Subscription, t
         log.error("Telegram credentials not configured for endpoint %s", endpoint.id)
         return False
     lines = build_game_lines(match, endpoint, sub, tz_name, mode, winner_abbrev)
-    text = _lines_to_html(lines, match.game.sport)
+    text = _format_message(lines, match.game.sport)
     if lines["thumb_url"]:
         return await _send_photo(token, chat_id, lines["thumb_url"], text)
     return await _send_message(token, chat_id, text)
@@ -70,7 +66,7 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
     parts = []
     for match, sub in matches_subs:
         lines = build_game_lines(match, endpoint, sub, tz_name, mode)
-        parts.append(_lines_to_html(lines, match.game.sport))
+        parts.append(_format_message(lines, match.game.sport))
     text = "\n\n─────────────\n\n".join(parts)
     return await _send_message(token, chat_id, text)
 
@@ -84,6 +80,6 @@ async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
     all_lines = build_digest_lines(matches_subs, endpoint, tz_name)
     parts = ["🐢 <b>Today's Games</b>"]
     for lines, (match, _) in zip(all_lines, matches_subs):
-        parts.append(_lines_to_html(lines, match.game.sport))
+        parts.append(_format_message(lines, match.game.sport))
     text = "\n\n".join(parts)
     return await _send_message(token, chat_id, text)

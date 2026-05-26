@@ -27,42 +27,24 @@
   </section>
 
   <section class="form-section">
-    <h2>Notification Defaults</h2>
+    <h2>Notification Template</h2>
     <p class="hint" style="margin-bottom:.75rem">
-      These fields appear in every alert by default. Endpoints can override individual fields if needed.
+      Customize the notification message using <code>{variable}</code> placeholders.
+      Lines where every variable is empty are skipped automatically.
+      Each endpoint can override this template individually.
     </p>
-    {% set nd = cfg.get('notification_defaults', {}) %}
-    <div class="check-group check-group--row">
-      <label class="check-opt">
-        <input type="checkbox" name="show_venue"
-               {% if nd.get('show_venue', True) %}checked{% endif %}>
-        Venue
-      </label>
-      <label class="check-opt">
-        <input type="checkbox" name="show_broadcast"
-               {% if nd.get('show_broadcast', True) %}checked{% endif %}>
-        Broadcast Networks
-      </label>
-      <label class="check-opt">
-        <input type="checkbox" name="show_odds"
-               {% if nd.get('show_odds', False) %}checked{% endif %}>
-        Odds
-      </label>
-      <label class="check-opt">
-        <input type="checkbox" name="show_series"
-               {% if nd.get('show_series', True) %}checked{% endif %}>
-        Series Standing
-      </label>
-      <label class="check-opt">
-        <input type="checkbox" name="show_week_context"
-               {% if nd.get('show_week_context', True) %}checked{% endif %}>
-        Week / Season Context
-      </label>
-      <label class="check-opt">
-        <input type="checkbox" name="show_key_stats"
-               {% if nd.get('show_key_stats', False) %}checked{% endif %}>
-        Key Stats
-      </label>
+    <div class="form-row">
+      <label for="notification_template">Default Template</label>
+      <textarea id="notification_template" name="notification_template" rows="7"
+                style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                placeholder="{time}&#10;📺 {channels}&#10;📍 {venue}&#10;{context}&#10;{odds}&#10;{score}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
+      <span class="hint">
+        Available variables: <code>{time}</code> <code>{channels}</code> <code>{broadcast}</code>
+        <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{score}</code>
+        <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
+        <code>{league}</code> <code>{sport}</code>
+      </span>
+      <span class="hint">Leave empty to use default: time, channels, venue, context, odds, score</span>
     </div>
   </section>
 
@@ -141,6 +123,23 @@
       </div>
       <button type="button" class="btn btn-secondary" onclick="addEpgSource()" style="align-self:flex-end">Add</button>
       <span id="epg-add-status" class="inline-status"></span>
+    </div>
+  </section>
+</div>
+<!-- Channel Management — separate card -->
+<div class="form-card" style="margin-top:2rem">
+  <section class="form-section" style="margin-bottom:0">
+    <div class="section-header">
+      <h2>Channel Management</h2>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="loadChannels()">↻ Load from Dispatcharr</button>
+      <span id="channels-load-status" class="inline-status"></span>
+    </div>
+    <p class="hint" style="margin-bottom:1rem">
+      Override channel numbers and enable or disable individual channels.
+      Disabled channels will never appear in notifications.
+    </p>
+    <div id="channels-container">
+      <p class="hint">Click "Load from Dispatcharr" to fetch channels.</p>
     </div>
   </section>
 </div>
@@ -268,5 +267,124 @@
   }
 
   loadEpgSources();
+
+  // ── Channel Management ────────────────────────────────────────────────────────
+
+  async function loadChannels() {
+    const container = document.getElementById('channels-container');
+    const status = document.getElementById('channels-load-status');
+    status.textContent = 'Loading…';
+    status.className = 'inline-status';
+    try {
+      const channels = await apiFetch('/api/channels');
+      if (channels.ok === false) {
+        status.textContent = '❌ ' + (channels.error || 'Failed');
+        status.className = 'inline-status text-red';
+        return;
+      }
+      status.textContent = channels.length + ' channels';
+      status.className = 'inline-status text-green';
+      if (!channels.length) {
+        container.innerHTML = '<p class="hint">No channels found. Is Dispatcharr configured?</p>';
+        return;
+      }
+      renderChannelsTable(channels);
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+      status.className = 'inline-status text-red';
+    }
+  }
+
+  function renderChannelsTable(channels) {
+    const container = document.getElementById('channels-container');
+    const rows = channels.map(ch => `
+      <tr id="ch-row-${escHtml(ch.id)}">
+        <td>
+          <strong>${escHtml(ch.name)}</strong>
+          <small class="hint" style="display:block">ID: ${escHtml(ch.id)}</small>
+        </td>
+        <td style="color:var(--text-muted);font-size:.85rem">${escHtml(ch.dispatcharr_number || '—')}</td>
+        <td>
+          <input type="text" class="ch-number-input" style="width:80px"
+                 value="${escHtml(ch.number || '')}" placeholder="e.g. 100"
+                 data-ch-id="${escHtml(ch.id)}">
+        </td>
+        <td>
+          <label class="toggle-label">
+            <input type="checkbox" class="ch-enabled-input" data-ch-id="${escHtml(ch.id)}"
+                   ${ch.enabled ? 'checked' : ''}>
+            <span class="toggle-text">${ch.enabled ? 'Enabled' : 'Disabled'}</span>
+          </label>
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm"
+                  onclick="saveChannelOverride('${escHtml(ch.id)}', this)">Save</button>
+          ${ch.has_override ? `<button class="btn btn-danger btn-sm"
+                  onclick="resetChannelOverride('${escHtml(ch.id)}', this)">Reset</button>` : ''}
+          <span class="ch-save-status inline-status" style="margin-left:.25rem"></span>
+        </td>
+      </tr>
+    `).join('');
+
+    container.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Dispatcharr #</th>
+            <th>Custom #</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+
+    // Update toggle labels on change
+    container.querySelectorAll('.ch-enabled-input').forEach(cb => {
+      cb.addEventListener('change', () => {
+        cb.closest('tr').querySelector('.toggle-text').textContent =
+          cb.checked ? 'Enabled' : 'Disabled';
+      });
+    });
+  }
+
+  async function saveChannelOverride(id, btn) {
+    const row = document.getElementById('ch-row-' + id);
+    const number = row.querySelector('.ch-number-input').value.trim();
+    const enabled = row.querySelector('.ch-enabled-input').checked;
+    const statusEl = row.querySelector('.ch-save-status');
+    btn.disabled = true;
+    try {
+      await apiFetch('/api/channels/' + encodeURIComponent(id) + '/override', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ number, enabled }),
+      });
+      statusEl.textContent = '✅';
+      statusEl.className = 'ch-save-status inline-status text-green';
+    } catch(e) {
+      statusEl.textContent = '❌';
+      statusEl.className = 'ch-save-status inline-status text-red';
+      statusEl.title = e.message;
+    }
+    btn.disabled = false;
+    setTimeout(() => { statusEl.textContent = ''; statusEl.title = ''; }, 2000);
+  }
+
+  async function resetChannelOverride(id, btn) {
+    if (!confirm('Reset channel override? This restores Dispatcharr defaults.')) return;
+    const statusEl = document.getElementById('ch-row-' + id).querySelector('.ch-save-status');
+    try {
+      await apiFetch('/api/channels/' + encodeURIComponent(id) + '/override', { method: 'DELETE' });
+      statusEl.textContent = '↺ Reset';
+      statusEl.className = 'ch-save-status inline-status';
+      setTimeout(() => loadChannels(), 800);
+    } catch(e) {
+      statusEl.textContent = '❌ ' + e.message;
+      statusEl.className = 'ch-save-status inline-status text-red';
+    }
+  }
 </script>
 {% endblock %}

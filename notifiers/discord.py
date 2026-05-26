@@ -13,7 +13,6 @@ from notifiers.base import build_digest_lines, build_game_lines
 
 log = logging.getLogger(__name__)
 
-# Sport → emoji
 SPORT_EMOJI = {
     "hockey": "🏒", "basketball": "🏀", "football": "🏈",
     "baseball": "⚾", "soccer": "⚽", "default": "🏟️",
@@ -35,28 +34,13 @@ def _colour_for_sport(sport: str) -> int:
 
 def _build_single_embed(lines: dict, sport: str) -> dict:
     emoji = _sport_emoji(sport)
-    fields = []
-
-    if lines["channels"]:
-        fields.append({"name": "📺 Watch on", "value": lines["channels"], "inline": False})
-    if lines["venue"]:
-        fields.append({"name": "📍 Venue", "value": lines["venue"], "inline": True})
-    if lines["context"]:
-        fields.append({"name": "📋 Context", "value": lines["context"], "inline": True})
-    if lines["odds"]:
-        fields.append({"name": "📊 Odds", "value": lines["odds"], "inline": True})
-    if lines["score"]:
-        fields.append({"name": "🏆 Final Score", "value": lines["score"], "inline": False})
-
     embed: dict[str, Any] = {
         "title": f"{emoji} {lines['title']}",
-        "description": lines["time"],
+        "description": lines["rendered"] or lines["time"],
         "color": _colour_for_sport(sport),
-        "fields": fields,
     }
     if lines["thumb_url"]:
         embed["image"] = {"url": lines["thumb_url"]}
-
     return embed
 
 

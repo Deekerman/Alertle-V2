@@ -51,16 +51,30 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         log.info("Fetching EPG programs from Dispatcharr...")
         epg_programs = await dispatcharr.get_programs(start=now, stop=scan_end)
         log.info("Fetched %d EPG programs", len(epg_programs))
-        # Enrich programs with channel numbers from the channels endpoint
+        # Enrich programs with channel numbers and apply channel_overrides
         try:
             channels = await dispatcharr.get_channels()
+            channel_overrides = cfg_module.get_channel_overrides(raw)
+            ch_disabled = {cid for cid, ov in channel_overrides.items()
+                           if not ov.get("enabled", True)}
+
+            # Build number map: Dispatcharr API first, then config override takes priority
             ch_num_map = {ch.id: ch.channel_number for ch in channels if ch.channel_number}
-            if ch_num_map:
-                for prog in epg_programs:
-                    prog.channel_number = ch_num_map.get(prog.channel_id, "")
-                log.info("Enriched programs with channel numbers (%d channels with numbers)", len(ch_num_map))
+            for cid, ov in channel_overrides.items():
+                if ov.get("number"):
+                    ch_num_map[cid] = ov["number"]
+
+            # Filter out disabled channels and enrich remaining with numbers
+            before = len(epg_programs)
+            epg_programs = [p for p in epg_programs if p.channel_id not in ch_disabled]
+            if ch_disabled:
+                log.info("Filtered %d programs from %d disabled channels",
+                         before - len(epg_programs), len(ch_disabled))
+            for prog in epg_programs:
+                prog.channel_number = ch_num_map.get(prog.channel_id, "")
+            log.info("Enriched programs with channel numbers (%d channels)", len(ch_num_map))
         except Exception as e:
-            log.warning("Could not fetch channel numbers: %s", e)
+            log.warning("Could not enrich channel data: %s", e)
     else:
         log.warning("Dispatcharr not configured — channel matching disabled")
 

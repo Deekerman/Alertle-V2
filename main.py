@@ -112,11 +112,13 @@ async def save_settings(request: Request):
     raw["game_thumbs"]["base_url"] = form.get("game_thumbs_url", "https://game-thumbs.swvn.io").strip()
     raw["game_thumbs"]["enabled"] = form.get("game_thumbs_enabled") == "on"
 
-    # Global notification defaults
+    # Global notification template
     raw.setdefault("notification_defaults", {})
-    for field in ("show_venue", "show_broadcast", "show_odds",
-                  "show_series", "show_week_context", "show_key_stats"):
-        raw["notification_defaults"][field] = form.get(field) == "on"
+    template = (form.get("notification_template") or "").strip()
+    if template:
+        raw["notification_defaults"]["template"] = template
+    else:
+        raw["notification_defaults"].pop("template", None)
 
     cfg_module.save_config(raw)
     return JSONResponse({"ok": True})
@@ -233,6 +235,66 @@ async def test_epg_source(name: str):
         return JSONResponse({"ok": True, "count": len(programs)})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)})
+
+
+# ── Channel overrides API ─────────────────────────────────────────────────────
+
+@app.get("/api/channels")
+async def list_channels():
+    raw = cfg_module.load_config()
+    channel_overrides = cfg_module.get_channel_overrides(raw)
+    dispatcharr = get_dispatcharr(raw)
+    channels = []
+    if dispatcharr:
+        try:
+            dispatcharr_channels = await dispatcharr.get_channels()
+            for ch in dispatcharr_channels:
+                ov = channel_overrides.get(ch.id, {})
+                channels.append({
+                    "id": ch.id,
+                    "name": ch.name,
+                    "number": ov.get("number", ch.channel_number),
+                    "enabled": ov.get("enabled", True),
+                    "dispatcharr_number": ch.channel_number,
+                    "has_override": ch.id in channel_overrides,
+                })
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    else:
+        for cid, ov in channel_overrides.items():
+            channels.append({
+                "id": cid,
+                "name": cid,
+                "number": ov.get("number", ""),
+                "enabled": ov.get("enabled", True),
+                "dispatcharr_number": "",
+                "has_override": True,
+            })
+    return JSONResponse(channels)
+
+
+@app.post("/api/channels/{channel_id}/override")
+async def save_channel_override(channel_id: str, request: Request):
+    data = await request.json()
+    raw = cfg_module.load_config()
+    raw.setdefault("channel_overrides", {})
+    ov = raw["channel_overrides"].get(channel_id, {})
+    if "number" in data:
+        ov["number"] = str(data["number"]).strip()
+    if "enabled" in data:
+        ov["enabled"] = bool(data["enabled"])
+    raw["channel_overrides"][channel_id] = ov
+    cfg_module.save_config(raw)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/channels/{channel_id}/override")
+async def delete_channel_override(channel_id: str):
+    raw = cfg_module.load_config()
+    raw.setdefault("channel_overrides", {})
+    raw["channel_overrides"].pop(channel_id, None)
+    cfg_module.save_config(raw)
+    return JSONResponse({"ok": True})
 
 
 # ── Scanner API ───────────────────────────────────────────────────────────────

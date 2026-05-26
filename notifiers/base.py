@@ -1,53 +1,55 @@
 """
 Alertle-V2 — Notification renderer.
 
-Builds the content for each notification type, respecting
-endpoint content_defaults and subscription content_overrides.
+Builds the content for each notification type using a {variable} template.
+All fields are always computed; the template controls what appears.
+Lines where every {var} resolves to an empty string are auto-skipped.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from models import ContentDefaults, Endpoint, ESPNGame, GameMatch, Subscription
+from models import Endpoint, ESPNGame, GameMatch, Subscription
 from game_thumbs.builder import build_url, build_league_url
 
 _GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
 
+DEFAULT_TEMPLATE = """{time}
+📺 {channels}
+📍 {venue}
+{context}
+{odds}
+{score}"""
 
-def _effective_content(endpoint: Endpoint, sub: Subscription) -> ContentDefaults:
-    """
-    Merge content settings in priority order:
-      1. Global notification_defaults (from Settings)
-      2. Endpoint content_defaults (overrides global)
-      3. Subscription content_overrides (overrides endpoint)
-    """
+
+def _get_template(endpoint: Endpoint) -> str:
+    """Return the notification template: endpoint override → global config → DEFAULT_TEMPLATE."""
+    ep_template = endpoint._raw.get("notification_template", "")
+    if ep_template:
+        return ep_template
     import config as _cfg
     raw = _cfg.load_config()
-    global_nd = raw.get("notification_defaults", {})
-    ep_nd = {}
-    # Only apply endpoint-level overrides for fields explicitly set in the endpoint raw config
-    ep_raw_content = endpoint._raw.get("content_defaults", {})
+    nd = raw.get("notification_defaults", {})
+    return nd.get("template", DEFAULT_TEMPLATE)
 
-    # Start from global defaults
-    cd = _cfg._parse_content_defaults(global_nd)
 
-    # Apply endpoint overrides (only fields present in the endpoint's content_defaults)
-    if ep_raw_content:
-        for field in ("show_venue", "show_broadcast", "show_odds",
-                      "show_series", "show_week_context", "show_key_stats"):
-            if field in ep_raw_content:
-                setattr(cd, field, ep_raw_content[field])
-
-    # Apply subscription overrides
-    overrides = sub.content_overrides
-    if "show_venue" in overrides:        cd.show_venue = overrides["show_venue"]
-    if "show_broadcast" in overrides:    cd.show_broadcast = overrides["show_broadcast"]
-    if "show_odds" in overrides:         cd.show_odds = overrides["show_odds"]
-    if "show_series" in overrides:       cd.show_series = overrides["show_series"]
-    if "show_week_context" in overrides: cd.show_week_context = overrides["show_week_context"]
-    if "show_key_stats" in overrides:    cd.show_key_stats = overrides["show_key_stats"]
-    return cd
+def render_template(template: str, vars: dict) -> str:
+    """
+    Substitute {var} markers in template.
+    Lines where every marker resolves to empty are dropped entirely.
+    """
+    result_lines = []
+    for line in template.split("\n"):
+        markers = re.findall(r'\{(\w+)\}', line)
+        if markers and all(not vars.get(m, "") for m in markers):
+            continue
+        rendered = line
+        for k, v in vars.items():
+            rendered = rendered.replace("{" + k + "}", v)
+        result_lines.append(rendered)
+    return "\n".join(result_lines)
 
 
 def format_game_time(dt: datetime, tz_name: str) -> str:
@@ -70,48 +72,33 @@ def build_game_lines(
 ) -> dict:
     """
     Build a structured dict of notification content for one game.
-    Notifiers use this to render their specific format.
-
-    Returns:
-        {
-          "title":    str,   # "Away vs Home"
-          "time":     str,   # formatted local time
-          "channels": str,   # "Sportsnet, ESPN+"
-          "venue":    str,   # "Scotiabank Arena, Toronto" (or "")
-          "context":  str,   # "Week 14" / "Series tied 2-2" (or "")
-          "odds":     str,   # "TOR -1.5 · O/U 6.0" (or "")
-          "score":    str,   # "3 - 1 (Final)" (or "")
-          "thumb_url": str,  # Game-Thumbs URL (or "")
-        }
+    Returns all raw fields plus 'rendered' (template output) and 'template' (active template).
     """
     game = match.game
-    cd = _effective_content(endpoint, sub)
 
     title = f"{game.away_team.name} vs {game.home_team.name}"
     time_str = format_game_time(game.start_time, tz_name)
-    channels_str = "\n".join(match.channels) if match.channels else "Channel TBD"
+    channels_str = "\n".join(match.channels) if match.channels else ""
 
     venue = ""
-    if cd.show_venue and game.venue:
+    if game.venue:
         venue = game.venue
         if game.venue_city:
             venue += f", {game.venue_city}"
 
     context_parts = []
-    if cd.show_week_context and game.season_context:
+    if game.season_context:
         context_parts.append(game.season_context)
-    if cd.show_series and game.series_summary:
+    if game.series_summary:
         context_parts.append(game.series_summary)
     context = " · ".join(context_parts)
 
-    odds = ""
-    if cd.show_odds:
-        parts = []
-        if game.odds_spread:
-            parts.append(game.odds_spread)
-        if game.odds_over_under:
-            parts.append(f"O/U {game.odds_over_under}")
-        odds = " · ".join(parts)
+    odds_parts = []
+    if game.odds_spread:
+        odds_parts.append(game.odds_spread)
+    if game.odds_over_under:
+        odds_parts.append(f"O/U {game.odds_over_under}")
+    odds = " · ".join(odds_parts)
 
     score = ""
     if mode == "game_summary" and game.home_score is not None:
@@ -119,6 +106,8 @@ def build_game_lines(
             f"{game.away_team.abbreviation} {game.away_score} – "
             f"{game.home_team.abbreviation} {game.home_score} (Final)"
         )
+
+    broadcast = ", ".join(game.broadcast_networks) if game.broadcast_networks else ""
 
     # Game-Thumbs — read base_url from config at runtime
     thumb_url = ""
@@ -137,15 +126,36 @@ def build_game_lines(
     except Exception:
         pass
 
+    template = _get_template(endpoint)
+    vars_map = {
+        "time":         time_str,
+        "channels":     channels_str,
+        "broadcast":    broadcast,
+        "venue":        venue,
+        "context":      context,
+        "odds":         odds,
+        "score":        score,
+        "home":         game.home_team.name,
+        "away":         game.away_team.name,
+        "home_abbrev":  game.home_team.abbreviation,
+        "away_abbrev":  game.away_team.abbreviation,
+        "league":       game.league.upper() if game.league else "",
+        "sport":        game.sport,
+    }
+    rendered = render_template(template, vars_map)
+
     return {
-        "title": title,
-        "time": time_str,
-        "channels": channels_str,
-        "venue": venue,
-        "context": context,
-        "odds": odds,
-        "score": score,
+        "title":     title,
+        "time":      time_str,
+        "channels":  channels_str,
+        "broadcast": broadcast,
+        "venue":     venue,
+        "context":   context,
+        "odds":      odds,
+        "score":     score,
         "thumb_url": thumb_url,
+        "rendered":  rendered,
+        "template":  template,
     }
 
 

@@ -168,18 +168,21 @@
 
       <hr class="divider">
 
-      <!-- Content overrides -->
+      <!-- Notification Template Override -->
       <div class="form-row">
-        <label>Override Global Notification Defaults <span class="hint">(optional — leave unchecked to use Settings defaults)</span></label>
-        <div class="check-group check-group--row" style="margin-top:.4rem">
-          <label class="check-opt"><input type="checkbox" name="content" value="show_venue"> Venue</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_broadcast"> Broadcast</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_odds"> Odds</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_series"> Series</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_week_context"> Week/Season</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_key_stats"> Key Stats</label>
-        </div>
-        <span class="hint">Only checked fields will override the global default. Unchecked = follow Settings.</span>
+        <label for="ep-notification-template">
+          Notification Template
+          <span class="hint">(optional — leave empty to use the global template from Settings)</span>
+        </label>
+        <textarea id="ep-notification-template" rows="6"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use the global template from Settings&#10;&#10;Example:&#10;{time}&#10;📺 {channels}&#10;📍 {venue}&#10;{context}"></textarea>
+        <span class="hint">
+          Variables: <code>{time}</code> <code>{channels}</code> <code>{broadcast}</code>
+          <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{score}</code>
+          <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
+          <code>{league}</code> <code>{sport}</code>
+        </span>
       </div>
 
       <hr class="divider">
@@ -279,8 +282,8 @@
     document.querySelectorAll('input[name="modes"]').forEach(cb => {
       cb.checked = cb.value === 'lead_time';
     });
-    // Clear content overrides
-    document.querySelectorAll('input[name="content"]').forEach(cb => cb.checked = false);
+    // Clear notification template
+    document.getElementById('ep-notification-template').value = '';
   }
 
   function editEndpoint(data) {
@@ -336,6 +339,9 @@
     document.getElementById('gt-badge').value = gt.badge || '';
     document.getElementById('gt-fallback').checked = gt.fallback !== false;
 
+    // Notification template
+    document.getElementById('ep-notification-template').value = data.notification_template || '';
+
     openModal('ep-modal');
   }
 
@@ -353,11 +359,7 @@
     const modes = [...document.querySelectorAll('input[name="modes"]:checked')].map(c => c.value);
     if (!modes.length) { alert('Select at least one notification mode.'); return; }
 
-    // Content overrides — only include fields that are explicitly checked
-    const content_defaults = {};
-    document.querySelectorAll('input[name="content"]').forEach(cb => {
-      if (cb.checked) content_defaults[cb.value] = true;
-    });
+    const notification_template = document.getElementById('ep-notification-template').value.trim();
 
     const payload = {
       id: document.getElementById('ep-id').value.trim(),
@@ -368,7 +370,7 @@
       digest_time: document.getElementById('digest-time').value,
       bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
       auto_record: false,
-      content_defaults,
+      notification_template,
       game_thumbs: {
         type: document.getElementById('gt-type').value,
         style: parseInt(document.getElementById('gt-style').value),

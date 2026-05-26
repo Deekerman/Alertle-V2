@@ -66,6 +66,12 @@ def get_epg_sources(raw: dict | None = None) -> list[dict]:
     return raw.get("epg_sources", [])
 
 
+def get_channel_overrides(raw: dict | None = None) -> dict:
+    """Returns {channel_id: {number: str, enabled: bool}}."""
+    raw = raw or _load_raw()
+    return raw.get("channel_overrides", {})
+
+
 def get_notification_defaults(raw: dict | None = None) -> "ContentDefaults":
     raw = raw or _load_raw()
     return _parse_content_defaults(raw.get("notification_defaults", {}))

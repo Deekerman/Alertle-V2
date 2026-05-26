@@ -8,7 +8,8 @@
   --accent:   #5b8dee;
   --accent2:  #3d6fd4;
   --text:     #e0e4f0;
-  --text-dim: #8891b5;
+  --text-dim:  #8891b5;
+  --text-muted:#8891b5;
   --green:    #3ecf8e;
   --red:      #f05d5d;
   --radius:   8px;
@@ -446,6 +447,31 @@ form { padding: 1.5rem; }
 .epg-source-name { min-width: 120px; }
 .epg-source-url  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .epg-source-actions { display: flex; gap: .5rem; flex-shrink: 0; }
+
+/* ── Channel management ─────────────────────────────────────────────────────── */
+
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.toggle-text { font-size: .85rem; color: var(--text-dim); }
+
+.ch-save-status { font-size: .85rem; }
+
+/* Inline code in hints */
+.hint code {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+  font-size: .8rem;
+  color: var(--accent);
+}
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 
