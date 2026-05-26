@@ -52,21 +52,33 @@ class DispatcharrClient:
     # ── Channels ──────────────────────────────────────────────────────────────
 
     async def get_channels(self) -> list[EPGChannel]:
-        try:
-            data = await self._get("/api/channels/channels/")
-            channels = []
-            for item in (data if isinstance(data, list) else data.get("results", [])):
-                raw_num = (item.get("channel_number") or item.get("effective_channel_number")
-                           or item.get("number") or item.get("lcn") or "")
+        channels = []
+        path: str | None = "/api/channels/channels/"
+        params: dict = {"page_size": 10000}
+        while path:
+            try:
+                data = await self._get(path, params)
+            except Exception as e:
+                log.error("Failed to fetch Dispatcharr channels: %s", e)
+                break
+            items = data.get("results", data) if isinstance(data, dict) else data
+            for item in items:
+                raw_num = item.get("channel_number") or ""
                 channels.append(EPGChannel(
                     id=str(item.get("id", "")),
-                    name=item.get("name", item.get("channel_name", "")),
+                    name=item.get("name", ""),
                     channel_number=_format_channel_number(raw_num),
                 ))
-            return channels
-        except Exception as e:
-            log.error("Failed to fetch Dispatcharr channels: %s", e)
-            return []
+            # Follow pagination via the next URL
+            next_url: str | None = data.get("next") if isinstance(data, dict) else None
+            if next_url:
+                from urllib.parse import urlparse
+                parsed = urlparse(next_url)
+                path = parsed.path + ("?" + parsed.query if parsed.query else "")
+                params = {}
+            else:
+                path = None
+        return channels
 
     # ── EPG Programs ──────────────────────────────────────────────────────────
 
@@ -147,33 +159,14 @@ class DispatcharrClient:
     # ── Output profiles ───────────────────────────────────────────────────────
 
     async def get_output_profiles(self) -> list[dict]:
-        """
-        Try to list Dispatcharr channel profiles (used in /output/epg/{name}/).
-        Falls back gracefully — endpoint may not exist or return non-JSON.
-        """
-        for path in ("/api/channels/channel_profiles/", "/api/core/outputprofiles/"):
-            try:
-                async with httpx.AsyncClient(timeout=15) as client:
-                    r = await client.get(f"{self.base_url}{path}", headers=self.headers)
-                    if r.status_code not in (200, 201):
-                        continue
-                    if not r.content.strip():
-                        continue
-                    try:
-                        data = r.json()
-                    except ValueError:
-                        log.debug("Output profiles: %s returned non-JSON (%d bytes)", path, len(r.content))
-                        continue
-                items = data if isinstance(data, list) else (data.get("results", []) if isinstance(data, dict) else [])
-                profiles = [
-                    {"id": p.get("id"), "name": p.get("name", ""), "is_active": p.get("is_active", False)}
-                    for p in items if p.get("name")
-                ]
-                if profiles:
-                    return profiles
-            except Exception as e:
-                log.debug("Output profiles: %s failed: %s", path, e)
-        return []
+        """List Dispatcharr channel profiles (used in /output/epg/{name}/)."""
+        try:
+            data = await self._get("/api/channels/profiles/")
+            items = data if isinstance(data, list) else data.get("results", [])
+            return [{"id": p.get("id"), "name": p.get("name", "")} for p in items if p.get("name")]
+        except Exception as e:
+            log.warning("Failed to fetch Dispatcharr channel profiles: %s", e)
+            return []
 
     # ── Health check ──────────────────────────────────────────────────────────
 
