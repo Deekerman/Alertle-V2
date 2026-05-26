@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Subscriptions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Subscriptions</h1>
+  <button class="btn btn-primary" onclick="openModal('add-sub-modal')">+ Add Subscription</button>
+</div>
+
+{% if subscriptions %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Label</th>
+      <th>Sport</th>
+      <th>League</th>
+      <th>Team / Scope</th>
+      <th>Endpoints</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for sub in subscriptions %}
+    <tr>
+      <td><strong>{{ sub.label }}</strong></td>
+      <td>{{ sub.espn_sport }}</td>
+      <td>{{ sub.espn_league }}</td>
+      <td>
+        {% if sub.scope == 'team' %}
+          {{ sub.espn_team_name or sub.espn_team_abbrev or sub.espn_team_id }}
+        {% else %}
+          <span class="badge">Whole League</span>
+        {% endif %}
+      </td>
+      <td>
+        {% for ep in sub.endpoints %}
+          <span class="badge">{{ ep }}</span>
+        {% endfor %}
+      </td>
+      <td>
+        <button class="btn btn-danger btn-sm"
+                onclick="deleteSub('{{ sub.label | e }}')">Delete</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No subscriptions yet. Add one to start receiving alerts.</p>
+</div>
+{% endif %}
+
+<!-- Add Subscription Modal -->
+<div class="modal-overlay hidden" id="add-sub-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add Subscription</h2>
+      <button class="modal-close" onclick="closeModal('add-sub-modal')">✕</button>
+    </div>
+    <form id="sub-form" onsubmit="saveSub(event)">
+
+      <div class="form-row">
+        <label for="sub-league">League</label>
+        <select id="sub-league" required onchange="onLeagueChange()">
+          <option value="">Select a league…</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Scope</label>
+        <div class="toggle-group">
+          <label class="toggle-opt">
+            <input type="radio" name="scope" value="league" checked onchange="onScopeChange()">
+            Whole League
+          </label>
+          <label class="toggle-opt">
+            <input type="radio" name="scope" value="team" onchange="onScopeChange()">
+            Single Team
+          </label>
+        </div>
+      </div>
+
+      <div class="form-row hidden" id="team-row">
+        <label for="sub-team">Team</label>
+        <select id="sub-team">
+          <option value="">Select a team…</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label for="sub-label">Label</label>
+        <input type="text" id="sub-label" placeholder="e.g. Toronto Maple Leafs" required>
+        <span class="hint">A friendly name — auto-filled when you pick a team</span>
+      </div>
+
+      <div class="form-row">
+        <label>Endpoints</label>
+        <div class="check-group">
+          {% if endpoints %}
+            {% for ep in endpoints %}
+            <label class="check-opt">
+              <input type="checkbox" name="endpoints" value="{{ ep.id }}">
+              {{ ep.id }} <span class="badge">{{ ep.type }}</span>
+            </label>
+            {% endfor %}
+          {% else %}
+            <p class="hint">No endpoints configured yet. <a href="/endpoints">Add one first.</a></p>
+          {% endif %}
+        </div>
+      </div>
+
+      <details class="collapsible">
+        <summary>Content Overrides <span class="hint">(optional — overrides endpoint defaults)</span></summary>
+        <div class="form-grid">
+          {% for field, label in [('show_venue','Venue'), ('show_broadcast','Broadcast Networks'),
+                                  ('show_odds','Odds'), ('show_series','Series Standing'),
+                                  ('show_week_context','Week/Season Context')] %}
+          <label class="check-opt">
+            <input type="checkbox" name="override_{{ field }}" value="{{ field }}">
+            Override {{ label }}
+          </label>
+          <label class="check-opt" id="override-val-{{ field }}" style="display:none">
+            <input type="checkbox" name="val_{{ field }}"> Show {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </details>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('add-sub-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Subscription</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // League list loaded from API
+  let leagueData = [];
+
+  async function init() {
+    const leagues = await apiFetch('/api/espn/leagues');
+    leagueData = leagues;
+    const sel = document.getElementById('sub-league');
+    leagues.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({sport: l.sport, league: l.league});
+      opt.textContent = l.label;
+      sel.appendChild(opt);
+    });
+
+    // Wire content override toggles
+    document.querySelectorAll('input[name^="override_"]').forEach(cb => {
+      const field = cb.name.replace('override_', '');
+      cb.addEventListener('change', () => {
+        const valRow = document.getElementById('override-val-' + field);
+        valRow.style.display = cb.checked ? '' : 'none';
+      });
+    });
+  }
+
+  async function onLeagueChange() {
+    const sel = document.getElementById('sub-league');
+    const teamSel = document.getElementById('sub-team');
+    teamSel.innerHTML = '<option value="">Select a team…</option>';
+
+    if (!sel.value) return;
+    const {sport, league} = JSON.parse(sel.value);
+
+    const scope = document.querySelector('input[name="scope"]:checked').value;
+    if (scope === 'league') {
+      // Auto-fill label for league-wide subscription
+      const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
+      if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
+    }
+
+    if (scope === 'team') {
+      const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`);
+      teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = JSON.stringify(t);
+        opt.textContent = t.name;
+        teamSel.appendChild(opt);
+      });
+    }
+  }
+
+  function onScopeChange() {
+    const scope = document.querySelector('input[name="scope"]:checked').value;
+    document.getElementById('team-row').classList.toggle('hidden', scope !== 'team');
+    if (scope !== 'team') {
+      // Re-trigger label fill for league scope
+      const sel = document.getElementById('sub-league');
+      if (sel.value) {
+        const {sport, league} = JSON.parse(sel.value);
+        const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
+        if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
+      }
+    }
+  }
+
+  document.getElementById('sub-team').addEventListener('change', function() {
+    if (!this.value) return;
+    const team = JSON.parse(this.value);
+    document.getElementById('sub-label').value = team.name;
+  });
+
+  async function saveSub(e) {
+    e.preventDefault();
+    const leagueVal = document.getElementById('sub-league').value;
+    if (!leagueVal) { alert('Please select a league.'); return; }
+    const {sport, league} = JSON.parse(leagueVal);
+
+    const scope = document.querySelector('input[name="scope"]:checked').value;
+    const label = document.getElementById('sub-label').value.trim();
+    if (!label) { alert('Please enter a label.'); return; }
+
+    let teamId = null, teamName = null, teamAbbrev = null;
+    if (scope === 'team') {
+      const teamVal = document.getElementById('sub-team').value;
+      if (!teamVal) { alert('Please select a team.'); return; }
+      const team = JSON.parse(teamVal);
+      teamId = team.id;
+      teamName = team.name;
+      teamAbbrev = team.abbreviation;
+    }
+
+    const endpoints = [...document.querySelectorAll('input[name="endpoints"]:checked')]
+      .map(cb => cb.value);
+
+    // Build content_overrides
+    const content_overrides = {};
+    document.querySelectorAll('input[name^="override_"]:checked').forEach(cb => {
+      const field = cb.name.replace('override_', '');
+      const valCb = document.querySelector(`input[name="val_${field}"]`);
+      content_overrides[field] = valCb ? valCb.checked : false;
+    });
+
+    const payload = {
+      label, espn_sport: sport, espn_league: league, scope,
+      espn_team_id: teamId, espn_team_name: teamName, espn_team_abbrev: teamAbbrev,
+      game_thumbs_league: league,
+      content_overrides, endpoints,
+    };
+
+    try {
+      await apiFetch('/api/subscriptions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      location.reload();
+    } catch(err) {
+      alert('Failed to save: ' + err.message);
+    }
+  }
+
+  async function deleteSub(label) {
+    if (!confirm(`Delete subscription "${label}"?`)) return;
+    await apiFetch('/api/subscriptions/' + encodeURIComponent(label), { method: 'DELETE' });
+    location.reload();
+  }
+
+  init();
+</script>
+{% endblock %}

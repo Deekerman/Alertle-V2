@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Endpoints{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Endpoints</h1>
+  <button class="btn btn-primary" onclick="openModal('add-ep-modal')">+ Add Endpoint</button>
+</div>
+
+{% if endpoints %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Type</th>
+      <th>Modes</th>
+      <th>Lead Time</th>
+      <th>Bundle</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ep in endpoints %}
+    <tr>
+      <td><strong>{{ ep.id }}</strong></td>
+      <td><span class="badge badge--type">{{ ep.type }}</span></td>
+      <td>
+        {% for m in ep.modes %}
+          <span class="badge">{{ m }}</span>
+        {% endfor %}
+      </td>
+      <td>{{ ep.lead_time_minutes }} min</td>
+      <td>±{{ ep.bundle_window_minutes }} min</td>
+      <td>
+        <button class="btn btn-danger btn-sm"
+                onclick="deleteEndpoint('{{ ep.id | e }}')">Delete</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No endpoints configured yet. Add one to start sending notifications.</p>
+</div>
+{% endif %}
+
+<!-- Add Endpoint Modal -->
+<div class="modal-overlay hidden" id="add-ep-modal">
+  <div class="modal modal--wide">
+    <div class="modal-header">
+      <h2>Add Endpoint</h2>
+      <button class="modal-close" onclick="closeModal('add-ep-modal')">✕</button>
+    </div>
+    <form id="ep-form" onsubmit="saveEndpoint(event)">
+
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label for="ep-id">Endpoint ID</label>
+          <input type="text" id="ep-id" placeholder="e.g. discord_main" required
+                 pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, underscores only">
+        </div>
+        <div class="form-row">
+          <label for="ep-type">Type</label>
+          <select id="ep-type" required onchange="onTypeChange()">
+            <option value="">Select type…</option>
+            <option value="discord">Discord</option>
+            <option value="telegram">Telegram</option>
+            <option value="pushover">Pushover</option>
+            <option value="ntfy">ntfy</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Type-specific credentials -->
+      <div id="creds-discord" class="creds hidden">
+        <div class="form-row">
+          <label>Webhook URL</label>
+          <input type="text" id="discord-webhook" placeholder="https://discord.com/api/webhooks/…">
+        </div>
+      </div>
+      <div id="creds-telegram" class="creds hidden">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Bot Token</label>
+            <input type="password" id="telegram-token" placeholder="123456:ABC…">
+          </div>
+          <div class="form-row">
+            <label>Chat ID</label>
+            <input type="text" id="telegram-chat" placeholder="-100123456789">
+          </div>
+        </div>
+      </div>
+      <div id="creds-pushover" class="creds hidden">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>App Token</label>
+            <input type="password" id="pushover-token" placeholder="aXXXX…">
+          </div>
+          <div class="form-row">
+            <label>User Key</label>
+            <input type="password" id="pushover-user" placeholder="uXXXX…">
+          </div>
+        </div>
+      </div>
+      <div id="creds-ntfy" class="creds hidden">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>ntfy URL</label>
+            <input type="text" id="ntfy-url" value="https://ntfy.sh" placeholder="https://ntfy.sh">
+          </div>
+          <div class="form-row">
+            <label>Topic</label>
+            <input type="text" id="ntfy-topic" placeholder="my-sports-alerts">
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Notification modes -->
+      <div class="form-row">
+        <label>Notification Modes</label>
+        <div class="check-group check-group--row">
+          <label class="check-opt"><input type="checkbox" name="modes" value="digest"> Morning Digest</label>
+          <label class="check-opt"><input type="checkbox" name="modes" value="lead_time" checked> Lead Time</label>
+          <label class="check-opt"><input type="checkbox" name="modes" value="game_start"> Game Start</label>
+          <label class="check-opt"><input type="checkbox" name="modes" value="game_summary"> Game Summary</label>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label for="lead-time">Lead Time (min)</label>
+          <select id="lead-time">
+            <option value="15">15 min</option>
+            <option value="30" selected>30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">60 min</option>
+            <option value="90">90 min</option>
+            <option value="120">120 min</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="precision">Alert Precision</label>
+          <select id="precision">
+            <option value="0">Exact</option>
+            <option value="1">±1 min</option>
+            <option value="2">±2 min</option>
+            <option value="5">±5 min</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="digest-time">Digest Time</label>
+          <input type="text" id="digest-time" value="08:00" placeholder="HH:MM">
+        </div>
+        <div class="form-row">
+          <label for="bundle-window">Bundle Window</label>
+          <select id="bundle-window">
+            <option value="5">±5 min</option>
+            <option value="10" selected>±10 min</option>
+            <option value="15">±15 min</option>
+          </select>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Content defaults -->
+      <div class="form-row">
+        <label>Default Content</label>
+        <div class="check-group check-group--row">
+          <label class="check-opt"><input type="checkbox" name="content" value="show_venue" checked> Venue</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_broadcast" checked> Broadcast</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_odds"> Odds</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_series" checked> Series</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_week_context" checked> Week/Season</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_key_stats"> Key Stats</label>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Game-Thumbs -->
+      <div class="form-row">
+        <label>Game-Thumbs Image</label>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label for="gt-type">Type</label>
+            <select id="gt-type">
+              <option value="thumb">Thumbnail</option>
+              <option value="logo">Logo</option>
+              <option value="cover">Cover</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="gt-style">Style</label>
+            <select id="gt-style">
+              <option value="1" selected>1 — Diagonal split</option>
+              <option value="2">2 — Gradient blend</option>
+              <option value="3">3 — Minimalist (light)</option>
+              <option value="4">4 — Minimalist (dark)</option>
+              <option value="5">5 — Grid dark</option>
+              <option value="6">6 — Grid gradient</option>
+              <option value="98">98 — 3D with league logo</option>
+              <option value="99">99 — 3D no league logo</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="gt-aspect">Aspect (thumb)</label>
+            <select id="gt-aspect">
+              <option value="4-3">4:3</option>
+              <option value="16-9" selected>16:9</option>
+              <option value="1-1">1:1</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="gt-badge">Badge</label>
+            <select id="gt-badge">
+              <option value="">None</option>
+              <option value="HD">HD</option>
+              <option value="FHD">FHD</option>
+              <option value="4K">4K</option>
+              <option value="UHD">UHD</option>
+              <option value="ALT">ALT</option>
+            </select>
+          </div>
+        </div>
+        <label class="check-opt" style="margin-top:.5rem">
+          <input type="checkbox" id="gt-fallback" checked> Fallback to league logo if team not found
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('add-ep-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Endpoint</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function onTypeChange() {
+    document.querySelectorAll('.creds').forEach(el => el.classList.add('hidden'));
+    const type = document.getElementById('ep-type').value;
+    if (type) document.getElementById('creds-' + type)?.classList.remove('hidden');
+  }
+
+  async function saveEndpoint(e) {
+    e.preventDefault();
+    const type = document.getElementById('ep-type').value;
+    if (!type) { alert('Select a type.'); return; }
+
+    const modes = [...document.querySelectorAll('input[name="modes"]:checked')].map(c => c.value);
+    if (!modes.length) { alert('Select at least one notification mode.'); return; }
+
+    const contentChecked = [...document.querySelectorAll('input[name="content"]:checked')].map(c => c.value);
+    const content_defaults = {
+      show_venue: contentChecked.includes('show_venue'),
+      show_broadcast: contentChecked.includes('show_broadcast'),
+      show_odds: contentChecked.includes('show_odds'),
+      show_series: contentChecked.includes('show_series'),
+      show_week_context: contentChecked.includes('show_week_context'),
+      show_key_stats: contentChecked.includes('show_key_stats'),
+    };
+
+    const payload = {
+      id: document.getElementById('ep-id').value.trim(),
+      type,
+      modes,
+      lead_time_minutes: parseInt(document.getElementById('lead-time').value),
+      precision_minutes: parseInt(document.getElementById('precision').value),
+      digest_time: document.getElementById('digest-time').value,
+      bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
+      auto_record: false,
+      content_defaults,
+      game_thumbs: {
+        type: document.getElementById('gt-type').value,
+        style: parseInt(document.getElementById('gt-style').value),
+        aspect: document.getElementById('gt-aspect').value,
+        badge: document.getElementById('gt-badge').value || null,
+        fallback: document.getElementById('gt-fallback').checked,
+        show_logo: true,
+      },
+    };
+
+    // Type-specific creds
+    if (type === 'discord') {
+      payload.webhook_url = document.getElementById('discord-webhook').value.trim();
+    } else if (type === 'telegram') {
+      payload.bot_token = document.getElementById('telegram-token').value.trim();
+      payload.chat_id = document.getElementById('telegram-chat').value.trim();
+    } else if (type === 'pushover') {
+      payload.app_token = document.getElementById('pushover-token').value.trim();
+      payload.user_key = document.getElementById('pushover-user').value.trim();
+    } else if (type === 'ntfy') {
+      payload.url = document.getElementById('ntfy-url').value.trim();
+      payload.topic = document.getElementById('ntfy-topic').value.trim();
+    }
+
+    try {
+      await apiFetch('/api/endpoints', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      location.reload();
+    } catch(err) {
+      alert('Failed to save: ' + err.message);
+    }
+  }
+
+  async function deleteEndpoint(id) {
+    if (!confirm(`Delete endpoint "${id}"?`)) return;
+    await apiFetch('/api/endpoints/' + encodeURIComponent(id), { method: 'DELETE' });
+    location.reload();
+  }
+</script>
+{% endblock %}

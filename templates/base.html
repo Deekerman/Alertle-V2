@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Alertle{% endblock %} — 🐢</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-brand" href="/">🐢 Alertle</a>
+    <div class="nav-links">
+      <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+      <a href="/subscriptions" class="nav-link {% if request.url.path == '/subscriptions' %}active{% endif %}">Subscriptions</a>
+      <a href="/endpoints" class="nav-link {% if request.url.path == '/endpoints' %}active{% endif %}">Endpoints</a>
+      <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">Settings</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

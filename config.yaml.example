@@ -1,0 +1,121 @@
+# Alertle-V2 Configuration
+# Copy this file to config.yaml and fill in your details.
+
+settings:
+  timezone: "America/Toronto"   # Your local timezone
+  scan_time: "06:00"            # Daily scan time (local timezone)
+
+dispatcharr:
+  url: "http://192.168.1.x:9191"
+  api_key: "your-dispatcharr-api-key"
+
+game_thumbs:
+  base_url: "https://game-thumbs.swvn.io"
+  enabled: true
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+# Each endpoint is a notification destination with its own behaviour settings.
+
+endpoints:
+  - id: "discord_main"
+    type: "discord"
+    webhook_url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+    modes:
+      - "digest"        # Morning summary of all games today
+      - "lead_time"     # Alert X minutes before game
+      # - "game_start"  # Alert at exact kickoff
+      # - "game_summary" # Final score when game ends
+    lead_time_minutes: 60
+    precision_minutes: 5      # ±5 min random offset (0 = exact)
+    digest_time: "08:00"
+    bundle_window_minutes: 15  # Games within 15 min of each other = one alert
+    auto_record: false
+    content_defaults:
+      show_venue: true
+      show_broadcast: true
+      show_odds: false
+      show_series: true
+      show_week_context: true
+      show_key_stats: false
+    game_thumbs:
+      type: "thumb"     # thumb | logo | cover
+      style: 1          # 1-6, 98, 99
+      aspect: "16-9"    # 4-3 | 16-9 | 1-1
+      show_logo: true
+      badge: null       # HD | FHD | 4K | UHD | ALT | null
+      fallback: true
+
+  - id: "pushover_phone"
+    type: "pushover"
+    user_key: "YOUR_PUSHOVER_USER_KEY"
+    app_token: "YOUR_PUSHOVER_APP_TOKEN"
+    modes:
+      - "lead_time"
+      - "game_start"
+    lead_time_minutes: 30
+    precision_minutes: 0      # Exact
+    bundle_window_minutes: 5
+    auto_record: false
+    content_defaults:
+      show_venue: false
+      show_broadcast: true
+      show_odds: false
+      show_series: true
+      show_week_context: false
+      show_key_stats: false
+    game_thumbs:
+      type: "logo"
+      style: 4
+      fallback: true
+
+  # - id: "telegram_group"
+  #   type: "telegram"
+  #   bot_token: "YOUR_BOT_TOKEN"
+  #   chat_id: "YOUR_CHAT_ID"
+  #   modes: ["lead_time"]
+  #   lead_time_minutes: 45
+  #   precision_minutes: 2
+  #   bundle_window_minutes: 10
+  #   game_thumbs:
+  #     type: "thumb"
+  #     style: 2
+  #     fallback: true
+
+  # - id: "ntfy_alerts"
+  #   type: "ntfy"
+  #   url: "https://ntfy.sh"   # or your self-hosted instance
+  #   topic: "my-sports-alerts"
+  #   modes: ["lead_time"]
+  #   lead_time_minutes: 30
+
+# ── Subscriptions ─────────────────────────────────────────────────────────────
+# Created via the web UI. Shown here for reference.
+# Use the UI's dropdown to pick sport → league → team.
+
+subscriptions: []
+
+# Example (created by UI — do not hand-edit ESPN IDs):
+#
+# subscriptions:
+#   - label: "Toronto Maple Leafs"
+#     espn_sport: "hockey"
+#     espn_league: "nhl"
+#     espn_team_id: "17"
+#     espn_team_name: "Toronto Maple Leafs"
+#     espn_team_abbrev: "TOR"
+#     scope: "team"
+#     game_thumbs_league: "nhl"
+#     content_overrides: {}
+#     endpoints:
+#       - "discord_main"
+#       - "pushover_phone"
+#
+#   - label: "All NFL Games"
+#     espn_sport: "football"
+#     espn_league: "nfl"
+#     scope: "league"
+#     game_thumbs_league: "nfl"
+#     content_overrides:
+#       show_odds: true
+#     endpoints:
+#       - "discord_main"

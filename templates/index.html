@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Slow turtle. Fast alerts.</p>
+</div>
+
+<div class="card-grid" id="status-cards">
+  <div class="card">
+    <div class="card-label">Dispatcharr</div>
+    <div class="card-value" id="stat-dispatcharr">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Subscriptions</div>
+    <div class="card-value" id="stat-subscriptions">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Endpoints</div>
+    <div class="card-value" id="stat-endpoints">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Timezone</div>
+    <div class="card-value card-value--sm" id="stat-timezone">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Daily Scan</div>
+    <div class="card-value card-value--sm" id="stat-scan-time">—</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Manual Scan</h2>
+  <p class="hint">Pull fresh games from ESPN and update scheduled alerts.</p>
+  <button class="btn btn-primary" id="scan-btn" onclick="runScan()">Run Scan Now</button>
+  <div id="scan-result" class="scan-result hidden"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  loadStatus();
+
+  async function loadStatus() {
+    try {
+      const data = await apiFetch('/api/status');
+      document.getElementById('stat-dispatcharr').textContent =
+        data.dispatcharr_connected ? '✅ Connected' : '❌ Disconnected';
+      document.getElementById('stat-dispatcharr').className =
+        'card-value ' + (data.dispatcharr_connected ? 'text-green' : 'text-red');
+      document.getElementById('stat-subscriptions').textContent = data.subscriptions;
+      document.getElementById('stat-endpoints').textContent = data.endpoints;
+      document.getElementById('stat-timezone').textContent = data.timezone;
+      document.getElementById('stat-scan-time').textContent = data.scan_time;
+    } catch(e) {
+      console.error('Status load failed:', e);
+    }
+  }
+
+  async function runScan() {
+    const btn = document.getElementById('scan-btn');
+    const result = document.getElementById('scan-result');
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+    result.className = 'scan-result hidden';
+    try {
+      const data = await apiFetch('/api/scan', { method: 'POST' });
+      if (data.ok) {
+        const s = data.summary;
+        result.innerHTML = `
+          <strong>Scan complete</strong><br>
+          ${s.unique_games} games &nbsp;·&nbsp;
+          ${s.alerts_scheduled} alerts scheduled &nbsp;·&nbsp;
+          ${s.games_without_channel} without channel &nbsp;·&nbsp;
+          ${s.epg_programs_fetched} EPG programs fetched
+        `;
+        result.className = 'scan-result scan-result--ok';
+      } else {
+        result.textContent = 'Scan failed: ' + (data.error || 'unknown error');
+        result.className = 'scan-result scan-result--err';
+      }
+    } catch(e) {
+      result.textContent = 'Scan failed: ' + e.message;
+      result.className = 'scan-result scan-result--err';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run Scan Now';
+    }
+  }
+</script>
+{% endblock %}

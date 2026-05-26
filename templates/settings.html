@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+</div>
+
+<form class="form-card" id="settings-form" onsubmit="saveSettings(event)">
+  <section class="form-section">
+    <h2>General</h2>
+    <div class="form-row">
+      <label for="timezone">Timezone</label>
+      <input type="text" id="timezone" name="timezone"
+             value="{{ cfg.get('settings', {}).get('timezone', 'UTC') }}"
+             placeholder="e.g. America/Toronto">
+      <span class="hint">IANA timezone name — all alert times are shown in this zone</span>
+    </div>
+    <div class="form-row">
+      <label for="scan_time">Daily Scan Time</label>
+      <input type="text" id="scan_time" name="scan_time"
+             value="{{ cfg.get('settings', {}).get('scan_time', '06:00') }}"
+             placeholder="HH:MM">
+      <span class="hint">24-hour time in your configured timezone (e.g. 06:00)</span>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h2>Dispatcharr</h2>
+    <div class="form-row">
+      <label for="dispatcharr_url">URL</label>
+      <input type="text" id="dispatcharr_url" name="dispatcharr_url"
+             value="{{ cfg.get('dispatcharr', {}).get('url', '') }}"
+             placeholder="http://192.168.1.x:9191">
+    </div>
+    <div class="form-row">
+      <label for="dispatcharr_api_key">API Key</label>
+      <input type="password" id="dispatcharr_api_key" name="dispatcharr_api_key"
+             value="{{ cfg.get('dispatcharr', {}).get('api_key', '') }}"
+             placeholder="Your Dispatcharr API key">
+    </div>
+    <div class="form-row">
+      <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
+      <span id="dispatcharr-test-result" class="inline-status"></span>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h2>Game-Thumbs</h2>
+    <div class="form-row">
+      <label for="game_thumbs_url">Base URL</label>
+      <input type="text" id="game_thumbs_url" name="game_thumbs_url"
+             value="{{ cfg.get('game_thumbs', {}).get('base_url', 'https://game-thumbs.swvn.io') }}"
+             placeholder="https://game-thumbs.swvn.io">
+    </div>
+    <div class="form-row form-row--check">
+      <label>
+        <input type="checkbox" id="game_thumbs_enabled" name="game_thumbs_enabled"
+               {% if cfg.get('game_thumbs', {}).get('enabled', True) %}checked{% endif %}>
+        Enable Game-Thumbs images in notifications
+      </label>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+    <span id="settings-saved" class="inline-status hidden">✅ Saved</span>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function saveSettings(e) {
+    e.preventDefault();
+    const form = document.getElementById('settings-form');
+    const data = new FormData(form);
+    try {
+      const res = await apiFetch('/api/settings', { method: 'POST', body: data });
+      if (res.ok) {
+        const el = document.getElementById('settings-saved');
+        el.className = 'inline-status text-green';
+        el.textContent = '✅ Saved';
+        setTimeout(() => { el.className = 'inline-status hidden'; }, 3000);
+      }
+    } catch(e) {
+      alert('Save failed: ' + e.message);
+    }
+  }
+
+  async function testDispatcharr() {
+    const el = document.getElementById('dispatcharr-test-result');
+    el.textContent = 'Testing…';
+    el.className = 'inline-status';
+    try {
+      const res = await apiFetch('/api/settings/test-dispatcharr');
+      if (res.ok) {
+        el.textContent = '✅ Connected';
+        el.className = 'inline-status text-green';
+      } else {
+        el.textContent = '❌ ' + (res.error || 'Failed');
+        el.className = 'inline-status text-red';
+      }
+    } catch(e) {
+      el.textContent = '❌ ' + e.message;
+      el.className = 'inline-status text-red';
+    }
+  }
+</script>
+{% endblock %}
