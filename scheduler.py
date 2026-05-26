@@ -192,12 +192,11 @@ class AlertScheduler:
                 game_match_json=match_json,
             )
             _upsert_alert(self._conn, alert)
-            log.info(
-                "Scheduled %s for %s at %s",
-                mode,
-                f"{game.away_team.name} vs {game.home_team.name}",
-                fire_at,
+            label = (
+                game.home_team.name if game.id.startswith("event:")
+                else f"{game.away_team.name} vs {game.home_team.name}"
             )
+            log.info("Scheduled %s for %s at %s", mode, label, fire_at)
 
     async def run(self) -> None:
         """

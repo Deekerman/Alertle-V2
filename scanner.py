@@ -43,11 +43,14 @@ EVENT_BASE_TERMS: dict[tuple[str, str], list[str]] = {
 # programmes that are technically "live" but are not actual event coverage.
 EVENT_EXCLUDE_TERMS: dict[tuple[str, str], list[str]] = {
     ("golf", "pga"):  [
+        # Studio / analysis shows
         "the cut", "inside the pga", "golf academy", "school of golf",
         "golf central", "morning drive", "live from", "highlights",
-        "best of", "on the range",
+        "best of", "on the range", "the drop", "the return",
+        # LPGA programs contain "lpga tour golf" which includes "pga tour" as a substring
+        "lpga",
     ],
-    ("golf", "lpga"): ["highlights", "best of"],
+    ("golf", "lpga"): ["highlights", "best of", "lpga tour golf academy"],
     ("golf", "eur"):  ["highlights", "best of"],
     ("racing", "f1"): ["highlights", "best of", "classic"],
     ("mma",  "ufc"):  ["highlights", "best of", "embedded"],
