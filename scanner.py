@@ -90,7 +90,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         xmltv_url = f"{dispatcharr.base_url}/output/epg/{output_profile}/"
         log.info("Fetching EPG from Dispatcharr profile '%s': %s", output_profile, xmltv_url)
         try:
-            epg_programs = await fetch_xmltv(xmltv_url)
+            epg_programs = await fetch_xmltv(xmltv_url, headers=dispatcharr.headers)
             log.info("Fetched %d EPG programs from Dispatcharr XMLTV (profile: %s)",
                      len(epg_programs), output_profile)
         except Exception as e:

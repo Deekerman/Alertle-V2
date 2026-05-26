@@ -73,16 +73,6 @@
              placeholder="Your Dispatcharr API key">
     </div>
     <div class="form-row">
-      <label for="dispatcharr_auth_scheme">Auth Scheme</label>
-      <select id="dispatcharr_auth_scheme" name="dispatcharr_auth_scheme">
-        <option value="X-API-Key" {% if cfg.get('dispatcharr', {}).get('auth_scheme', 'X-API-Key') == 'X-API-Key' %}selected{% endif %}>X-API-Key (default)</option>
-        <option value="ApiKey" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'ApiKey' %}selected{% endif %}>Authorization: ApiKey</option>
-        <option value="Token" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Token' %}selected{% endif %}>Authorization: Token (legacy)</option>
-        <option value="Bearer" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Bearer' %}selected{% endif %}>Authorization: Bearer (legacy)</option>
-      </select>
-      <span class="hint">Dispatcharr uses <code>X-API-Key</code> by default. Try <code>ApiKey</code> if that fails.</span>
-    </div>
-    <div class="form-row">
       <label for="dispatcharr_output_profile">Channel Profile</label>
       <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
         <input type="text" id="dispatcharr_output_profile" name="dispatcharr_output_profile"
@@ -212,11 +202,10 @@
     const el = document.getElementById('dispatcharr-test-result');
     const url = document.getElementById('dispatcharr_url').value.trim();
     const key = document.getElementById('dispatcharr_api_key').value.trim();
-    const scheme = document.getElementById('dispatcharr_auth_scheme').value;
     el.textContent = 'Testing…';
     el.className = 'inline-status';
     try {
-      const params = new URLSearchParams({ url, api_key: key, auth_scheme: scheme });
+      const params = new URLSearchParams({ url, api_key: key });
       const res = await apiFetch('/api/settings/test-dispatcharr?' + params);
       if (res.ok) {
         el.textContent = '✅ Connected';

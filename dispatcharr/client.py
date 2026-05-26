@@ -28,12 +28,7 @@ def _format_channel_number(raw) -> str:
 class DispatcharrClient:
     def __init__(self, base_url: str, api_key: str, auth_scheme: str = "X-API-Key"):
         self.base_url = base_url.rstrip("/")
-        # Dispatcharr primary auth: X-API-Key header
-        # Also supports: Authorization: ApiKey <key>
-        if auth_scheme == "X-API-Key":
-            self.headers = {"X-API-Key": api_key}
-        else:
-            self.headers = {"Authorization": f"{auth_scheme} {api_key}"}
+        self.headers = {"X-API-Key": api_key}
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
         url = f"{self.base_url}{path}"
@@ -187,5 +182,4 @@ def get_client(cfg: dict) -> DispatcharrClient | None:
     key = d.get("api_key", "").strip()
     if not url or not key:
         return None
-    scheme = d.get("auth_scheme", "X-API-Key")
-    return DispatcharrClient(base_url=url, api_key=key, auth_scheme=scheme)
+    return DispatcharrClient(base_url=url, api_key=key)

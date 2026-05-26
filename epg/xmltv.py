@@ -41,14 +41,14 @@ def _parse_xmltv_time(s: str) -> Optional[datetime]:
             return None
 
 
-async def fetch_xmltv(url: str) -> list[EPGProgram]:
+async def fetch_xmltv(url: str, headers: dict | None = None) -> list[EPGProgram]:
     """
     Download and parse an XMLTV URL.
     Returns a list of EPGProgram objects.
     """
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            r = await client.get(url)
+            r = await client.get(url, headers=headers or {})
             r.raise_for_status()
             content = r.content
     except Exception as e:
@@ -58,14 +58,14 @@ async def fetch_xmltv(url: str) -> list[EPGProgram]:
     return _parse_xmltv_content(content)
 
 
-async def fetch_xmltv_channels(url: str) -> list[dict]:
+async def fetch_xmltv_channels(url: str, headers: dict | None = None) -> list[dict]:
     """
     Download an XMLTV URL and return only channel metadata — no programme parsing.
     Returns [{"id": ch_id, "name": display_name, "number": channel_number}, ...]
     """
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            r = await client.get(url)
+            r = await client.get(url, headers=headers or {})
             r.raise_for_status()
             content = r.content
     except Exception as e:

@@ -117,7 +117,6 @@ async def save_settings(request: Request):
     raw.setdefault("dispatcharr", {})
     raw["dispatcharr"]["url"] = form.get("dispatcharr_url", "").strip()
     raw["dispatcharr"]["api_key"] = form.get("dispatcharr_api_key", "").strip()
-    raw["dispatcharr"]["auth_scheme"] = form.get("dispatcharr_auth_scheme", "Token")
     raw["dispatcharr"]["output_profile"] = form.get("dispatcharr_output_profile", "").strip()
 
     raw.setdefault("game_thumbs", {})
@@ -156,15 +155,14 @@ async def dispatcharr_output_profiles():
 
 
 @app.get("/api/settings/test-dispatcharr")
-async def test_dispatcharr(url: str = "", api_key: str = "", auth_scheme: str = ""):
+async def test_dispatcharr(url: str = "", api_key: str = ""):
     """
     Test Dispatcharr connectivity.
-    Accepts url/api_key/auth_scheme as query params (from the unsaved form) or
+    Accepts url/api_key as query params (from the unsaved form) or
     falls back to the saved config if params are empty.
     """
     if url and api_key:
-        scheme = auth_scheme or "Token"
-        client: DispatcharrClient | None = DispatcharrClient(base_url=url, api_key=api_key, auth_scheme=scheme)
+        client: DispatcharrClient | None = DispatcharrClient(base_url=url, api_key=api_key)
     else:
         raw = cfg_module.load_config()
         client = get_dispatcharr(raw)
@@ -290,7 +288,7 @@ async def list_channels():
         from epg.xmltv import fetch_xmltv_channels
         try:
             xmltv_url = f"{client.base_url}/output/epg/{output_profile}/"
-            channels = await fetch_xmltv_channels(xmltv_url)
+            channels = await fetch_xmltv_channels(xmltv_url, headers=client.headers)
             return JSONResponse([
                 {"id": ch["id"], "name": ch["name"], "number": ch["number"]}
                 for ch in channels
