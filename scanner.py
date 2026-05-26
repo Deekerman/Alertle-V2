@@ -27,6 +27,7 @@ LOOKAHEAD_DAYS = 7
 EVENT_BASE_TERMS: dict[tuple[str, str], list[str]] = {
     ("golf",   "pga"):  ["Golf", "PGA"],
     ("golf",   "lpga"): ["Golf", "LPGA"],
+    ("golf",   "eur"):  ["Golf", "European Tour", "DP World"],
     ("racing", "f1"):   ["Formula 1", "F1", "Formula One", "Grand Prix"],
     ("mma",    "ufc"):  ["UFC", "MMA"],
     ("tennis", "atp"):  ["Tennis", "ATP"],

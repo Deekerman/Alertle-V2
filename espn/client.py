@@ -50,6 +50,7 @@ SUPPORTED_LEAGUES: list[tuple[str, str, str]] = [
 EVENT_SERIES_LEAGUES: list[tuple[str, str, str]] = [
     ("golf",    "pga",  "PGA Tour"),
     ("golf",    "lpga", "LPGA Tour"),
+    ("golf",    "eur",  "DP World Tour"),
     ("racing",  "f1",   "Formula 1"),
     ("mma",     "ufc",  "UFC"),
     ("tennis",  "atp",  "ATP Tennis"),
