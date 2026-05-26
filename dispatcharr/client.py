@@ -144,6 +144,20 @@ class DispatcharrClient:
                     return True
         return False
 
+    # ── Output profiles ───────────────────────────────────────────────────────
+
+    async def get_output_profiles(self) -> list[dict]:
+        try:
+            data = await self._get("/api/core/outputprofiles/")
+            items = data if isinstance(data, list) else data.get("results", [])
+            return [
+                {"id": p.get("id"), "name": p.get("name", ""), "is_active": p.get("is_active", False)}
+                for p in items if p.get("name")
+            ]
+        except Exception as e:
+            log.error("Failed to fetch output profiles: %s", e)
+            return []
+
     # ── Health check ──────────────────────────────────────────────────────────
 
     async def ping(self) -> tuple[bool, str]:

@@ -107,6 +107,7 @@ async def save_settings(request: Request):
     raw["dispatcharr"]["url"] = form.get("dispatcharr_url", "").strip()
     raw["dispatcharr"]["api_key"] = form.get("dispatcharr_api_key", "").strip()
     raw["dispatcharr"]["auth_scheme"] = form.get("dispatcharr_auth_scheme", "Token")
+    raw["dispatcharr"]["output_profile"] = form.get("dispatcharr_output_profile", "").strip()
 
     raw.setdefault("game_thumbs", {})
     raw["game_thumbs"]["base_url"] = form.get("game_thumbs_url", "https://game-thumbs.swvn.io").strip()
@@ -128,6 +129,19 @@ async def save_settings(request: Request):
 
     cfg_module.save_config(raw)
     return JSONResponse({"ok": True})
+
+
+@app.get("/api/dispatcharr/output-profiles")
+async def dispatcharr_output_profiles():
+    raw = cfg_module.load_config()
+    client = get_dispatcharr(raw)
+    if not client:
+        return JSONResponse({"ok": False, "error": "Dispatcharr not configured"}, status_code=400)
+    try:
+        profiles = await client.get_output_profiles()
+        return JSONResponse(profiles)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/settings/test-dispatcharr")

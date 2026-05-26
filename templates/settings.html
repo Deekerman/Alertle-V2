@@ -82,6 +82,20 @@
       </select>
       <span class="hint">Dispatcharr uses <code>X-API-Key</code> by default. Try <code>ApiKey</code> if that fails.</span>
     </div>
+    <div class="form-row">
+      <label for="dispatcharr_output_profile">Output Profile</label>
+      <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+        <select id="dispatcharr_output_profile" name="dispatcharr_output_profile" style="flex:1; min-width:180px">
+          <option value="">— None (use REST API) —</option>
+          {% if cfg.get('dispatcharr', {}).get('output_profile') %}
+          <option value="{{ cfg.get('dispatcharr', {}).get('output_profile') }}" selected>{{ cfg.get('dispatcharr', {}).get('output_profile') }}</option>
+          {% endif %}
+        </select>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loadOutputProfiles()">Load Profiles</button>
+        <span id="profiles-load-status" class="inline-status"></span>
+      </div>
+      <span class="hint">When set, EPG data is fetched from Dispatcharr's filtered XMLTV output for this profile instead of the REST API.</span>
+    </div>
     <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
       <span id="dispatcharr-test-result" class="inline-status"></span>
@@ -196,6 +210,34 @@
     } catch(e) {
       el.textContent = '❌ ' + e.message;
       el.className = 'inline-status text-red';
+    }
+  }
+
+  // ── Output Profiles ──────────────────────────────────────────────────────────
+
+  async function loadOutputProfiles() {
+    const select = document.getElementById('dispatcharr_output_profile');
+    const status = document.getElementById('profiles-load-status');
+    status.textContent = 'Loading…';
+    status.className = 'inline-status';
+    try {
+      const profiles = await apiFetch('/api/dispatcharr/output-profiles');
+      if (profiles.ok === false) {
+        status.textContent = '❌ ' + (profiles.error || 'Failed');
+        status.className = 'inline-status text-red';
+        return;
+      }
+      const current = select.value;
+      select.innerHTML = '<option value="">— None (use REST API) —</option>' +
+        profiles.map(p =>
+          `<option value="${escHtml(p.name)}"${p.name === current ? ' selected' : ''}>${escHtml(p.name)}${p.is_active ? ' ★' : ''}</option>`
+        ).join('');
+      status.textContent = profiles.length + ' profile' + (profiles.length === 1 ? '' : 's') + ' loaded';
+      status.className = 'inline-status text-green';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+      status.className = 'inline-status text-red';
     }
   }
 

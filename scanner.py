@@ -47,8 +47,21 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
     # Fetch EPG programs once for the whole window
     epg_programs = []
-    if dispatcharr:
-        log.info("Fetching EPG programs from Dispatcharr...")
+    dispatcharr_cfg = raw.get("dispatcharr", {})
+    output_profile = dispatcharr_cfg.get("output_profile", "").strip()
+
+    if dispatcharr and output_profile:
+        # Use Dispatcharr's filtered XMLTV output for the selected profile
+        xmltv_url = f"{dispatcharr.base_url}/output/epg/{output_profile}/"
+        log.info("Fetching EPG from Dispatcharr profile '%s': %s", output_profile, xmltv_url)
+        try:
+            epg_programs = await fetch_xmltv(xmltv_url)
+            log.info("Fetched %d EPG programs from Dispatcharr XMLTV (profile: %s)",
+                     len(epg_programs), output_profile)
+        except Exception as e:
+            log.error("Failed to fetch Dispatcharr XMLTV (profile '%s'): %s", output_profile, e)
+    elif dispatcharr:
+        log.info("Fetching EPG programs from Dispatcharr REST API...")
         epg_programs = await dispatcharr.get_programs(start=now, stop=scan_end)
         log.info("Fetched %d EPG programs", len(epg_programs))
         # Enrich programs with channel numbers and apply channel_overrides
