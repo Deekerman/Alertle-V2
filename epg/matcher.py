@@ -102,15 +102,19 @@ def find_channels_for_event(
     event_terms: list[str],
     programs: list[EPGProgram],
     event_date: date,
-) -> tuple[list[str], str]:
+) -> tuple[list[str], str, str, str]:
     """
     Match EPG programs for an event-series sport (golf, F1, UFC, tennis, etc.).
     Full-day window: any program starting on event_date (UTC) whose title or
     subtitle contains at least one of the event_terms AND is flagged <live/>.
     Requires is_live=True to exclude replays and highlight shows.
+
+    Returns (channels, description, first_title, first_subtitle).
     """
     matched: dict[str, str] = {}
     first_description = ""
+    first_title = ""
+    first_subtitle = ""
 
     for prog in programs:
         if prog.start.date() != event_date:
@@ -127,12 +131,15 @@ def find_channels_for_event(
                 matched[prog.channel_name] = prog.channel_name
         if not first_description and prog.description:
             first_description = prog.description
+        if not first_title:
+            first_title = prog.title
+            first_subtitle = prog.subtitle
 
     def _sort_key(display: str) -> tuple[int, str]:
         m = re.match(r'^(\d+)', display)
         return (int(m.group(1)), display) if m else (10 ** 9, display)
 
-    return sorted(matched.values(), key=_sort_key), first_description
+    return sorted(matched.values(), key=_sort_key), first_description, first_title, first_subtitle
 
 
 def find_event_earliest_start(

@@ -188,18 +188,28 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
             # Standings alert fires today — only schedule it if the event has
             # live EPG coverage today (i.e. the tournament is actually running today).
-            today_has_coverage = bool(
-                find_channels_for_event(event_terms, epg_programs, now.date())
-            )
+            today_result = find_channels_for_event(event_terms, epg_programs, now.date())
+            today_has_coverage = bool(today_result[0])
             standings_scheduled = False
 
             for day_offset in range(1, LOOKAHEAD_DAYS + 1):
                 check_dt = now + timedelta(days=day_offset)
                 check_date = check_dt.date()
 
-                channels, description = find_channels_for_event(event_terms, epg_programs, check_date)
+                channels, description, epg_title, epg_subtitle = find_channels_for_event(
+                    event_terms, epg_programs, check_date
+                )
                 if not channels:
                     continue
+
+                # Derive the display name from the EPG program rather than ESPN.
+                # Subtitle is often the specific event name (e.g. "Charles Schwab Challenge");
+                # title may be generic ("PGA Tour Golf") or fully descriptive ("Live: Austrian Open,
+                # DP World Tour Golf"). Strip the "Live: " broadcast prefix if present.
+                display_name = epg_subtitle.strip() if epg_subtitle.strip() else (
+                    epg_title.removeprefix("Live: ").strip()
+                )
+                display_name = display_name or event_name or sub.label
 
                 earliest = find_event_earliest_start(event_terms, epg_programs, check_date)
                 event_start = earliest if earliest else check_dt.replace(
@@ -212,8 +222,8 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                     sport=sub.espn_sport,
                     league=sub.espn_league,
                     home_team=ESPNTeam(
-                        id="event", name=event_name, abbreviation="",
-                        short_name=event_name, location="",
+                        id="event", name=display_name, abbreviation="",
+                        short_name=display_name, location="",
                     ),
                     away_team=ESPNTeam(
                         id="event", name="", abbreviation="", short_name="", location="",
