@@ -54,7 +54,7 @@ EVENT_EXCLUDE_TERMS: dict[tuple[str, str], list[str]] = {
         "featured groups", "featured group",
     ],
     ("golf", "lpga"): ["highlights", "best of", "lpga tour golf academy"],
-    ("golf", "eur"):  ["highlights", "best of", "featured groups", "featured group"],
+    ("golf", "eur"):  ["highlights", "best of"],
     ("racing", "f1"): ["highlights", "best of", "classic"],
     ("mma",  "ufc"):  ["highlights", "best of", "embedded"],
     ("tennis", "atp"): ["highlights", "best of"],
