@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import config as cfg_module
@@ -170,15 +171,16 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 log.warning("[%s] No EPG terms defined for %s/%s", sub.label, sub.espn_sport, sub.espn_league)
                 continue
 
-            # Try ESPN for current event name — used for standings and ID, not required for EPG matching
+            # Try ESPN for current event name — used for standings labels and alert ID.
+            # NOT used for EPG term matching: ESPN sometimes returns the wrong event
+            # for a league endpoint (e.g. golf/eur returning a PGA Tour event), which
+            # would add that name to event_terms and match wrong EPG programs.
             event = await get_active_event(sub.espn_sport, sub.espn_league)
             event_name = event["name"] if event else sub.label
             event_id = event["id"] if event else sub.espn_league
 
-            # Add ESPN event name as an extra EPG search term when available
+            # EPG matching uses only the verified base terms for this league.
             event_terms = list(base_terms)
-            if event and event_name and event_name not in event_terms:
-                event_terms.append(event_name)
 
             # Scan the lookahead window starting from TOMORROW.
             # Today's events are already covered by yesterday's scheduled scan;
@@ -202,14 +204,17 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 if not channels:
                     continue
 
-                # Derive the display name from the EPG program rather than ESPN.
-                # Subtitle is often the specific event name (e.g. "Charles Schwab Challenge");
-                # title may be generic ("PGA Tour Golf") or fully descriptive ("Live: Austrian Open,
-                # DP World Tour Golf"). Strip the "Live: " broadcast prefix if present.
-                display_name = epg_subtitle.strip() if epg_subtitle.strip() else (
-                    epg_title.removeprefix("Live: ").strip()
-                )
-                display_name = display_name or event_name or sub.label
+                # Derive the display name from EPG program data.
+                # Subtitle is often the specific tournament name (e.g. "Charles Schwab Challenge").
+                # Avoid using generic round indicators ("Round 1", "Day 2") as the event name.
+                # Title may be generic ("PGA Tour Golf") or carry the full event name
+                # ("Live: Austrian Open, DP World Tour Golf") — strip broadcast prefixes.
+                _sub = epg_subtitle.strip()
+                _is_round = bool(re.match(
+                    r'^(round|day|session|hole|week)\s*\d+$', _sub, re.IGNORECASE
+                ))
+                _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
+                display_name = (_sub if _sub and not _is_round else _title_clean) or event_name or sub.label
 
                 earliest = find_event_earliest_start(event_terms, epg_programs, check_date)
                 event_start = earliest if earliest else check_dt.replace(
