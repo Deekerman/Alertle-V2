@@ -58,7 +58,38 @@ async def fetch_xmltv(url: str) -> list[EPGProgram]:
     return _parse_xmltv_content(content)
 
 
-def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
+async def fetch_xmltv_channels(url: str) -> list[dict]:
+    """
+    Download an XMLTV URL and return only channel metadata — no programme parsing.
+    Returns [{"id": ch_id, "name": display_name, "number": channel_number}, ...]
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            content = r.content
+    except Exception as e:
+        log.error("XMLTV channel fetch failed for %s: %s", url, e)
+        return []
+
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as e:
+        log.error("XMLTV XML parse error (channels): %s", e)
+        return []
+
+    channels = []
+    for ch in root.findall("channel"):
+        ch_id   = ch.get("id", "")
+        display = ch.findtext("display-name") or ch_id
+        lcn     = (ch.findtext("lcn") or "").strip()
+        number  = lcn if lcn else (ch_id if ch_id.isdigit() else "")
+        if ch_id:
+            channels.append({"id": ch_id, "name": display, "number": number})
+    return channels
+
+
+
     """Parse raw XMLTV XML bytes into EPGProgram list."""
     try:
         root = ET.fromstring(content)
