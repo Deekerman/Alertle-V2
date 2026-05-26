@@ -94,6 +94,15 @@ async def send_digest(
     return await _post_webhook(endpoint._raw.get("webhook_url", ""), payload)
 
 
+async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:
+    embed = {
+        "title": f"🏆 {event_name} — Standings",
+        "description": body or "No standings data available.",
+        "color": 0xFFD700,
+    }
+    return await _post_webhook(endpoint._raw.get("webhook_url", ""), {"embeds": [embed]})
+
+
 async def _post_webhook(url: str, payload: dict) -> bool:
     if not url:
         log.error("Discord webhook URL not configured")

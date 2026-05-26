@@ -24,6 +24,7 @@ class ESPNLeague:
     sport: str          # "hockey"
     league: str         # "nhl"
     label: str          # "NHL"
+    is_event_series: bool = False  # True for golf, F1, UFC, tennis
 
 
 @dataclass
@@ -121,13 +122,14 @@ class Subscription:
     label: str
     espn_sport: str
     espn_league: str
-    scope: str                  # "team" | "league"
+    scope: str                  # "team" | "league" | "event_series"
     espn_team_id: Optional[str] = None
     espn_team_name: Optional[str] = None
     espn_team_abbrev: Optional[str] = None
     game_thumbs_league: str = ""
     content_overrides: dict = field(default_factory=dict)
     endpoints: list[str] = field(default_factory=list)
+    standings_alert: bool = False  # event_series only: send daily leaderboard
 
 
 # ── Scheduled alert state (persisted to SQLite) ───────────────────────────────

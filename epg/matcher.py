@@ -9,7 +9,8 @@ Given an ESPNGame, finds matching EPG programs by:
 from __future__ import annotations
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
+from typing import Optional
 
 from models import EPGProgram, ESPNGame, ESPNTeam
 
@@ -95,3 +96,56 @@ def find_channels_for_game(
         return (int(m.group(1)), display) if m else (10 ** 9, display)
 
     return sorted(matched.values(), key=_sort_key), first_description
+
+
+def find_channels_for_event(
+    event_terms: list[str],
+    programs: list[EPGProgram],
+    event_date: date,
+) -> tuple[list[str], str]:
+    """
+    Match EPG programs for an event-series sport (golf, F1, UFC, tennis, etc.).
+    Full-day window: any program starting on event_date (UTC) whose title or
+    subtitle contains at least one of the event_terms.
+    """
+    matched: dict[str, str] = {}
+    first_description = ""
+
+    for prog in programs:
+        if prog.start.date() != event_date:
+            continue
+        haystack = f"{prog.title} {prog.subtitle}"
+        if not _text_contains_any(haystack, event_terms):
+            continue
+        if prog.channel_name and prog.channel_name not in matched:
+            if prog.channel_number:
+                matched[prog.channel_name] = f"{prog.channel_number} - {prog.channel_name}"
+            else:
+                matched[prog.channel_name] = prog.channel_name
+        if not first_description and prog.description:
+            first_description = prog.description
+
+    def _sort_key(display: str) -> tuple[int, str]:
+        m = re.match(r'^(\d+)', display)
+        return (int(m.group(1)), display) if m else (10 ** 9, display)
+
+    return sorted(matched.values(), key=_sort_key), first_description
+
+
+def find_event_earliest_start(
+    event_terms: list[str],
+    programs: list[EPGProgram],
+    event_date: date,
+) -> "Optional[object]":
+    """
+    Find the earliest EPG program start time matching event_terms on event_date.
+    Returns a datetime (UTC) or None if no programs matched.
+    """
+    starts = []
+    for prog in programs:
+        if prog.start.date() != event_date:
+            continue
+        haystack = f"{prog.title} {prog.subtitle}"
+        if _text_contains_any(haystack, event_terms):
+            starts.append(prog.start)
+    return min(starts) if starts else None

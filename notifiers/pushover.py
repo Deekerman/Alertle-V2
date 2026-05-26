@@ -76,3 +76,13 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
                       endpoint: Endpoint, tz_name: str) -> bool:
     return await send_bundled(matches_subs, endpoint, tz_name, mode="digest")
+
+
+async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:
+    raw = endpoint._raw
+    token = raw.get("app_token", "")
+    user_key = raw.get("user_key", "")
+    if not token or not user_key:
+        log.error("Pushover credentials not configured for endpoint %s", endpoint.id)
+        return False
+    return await _send(token, user_key, f"🏆 {event_name}", body or "No standings data available.")

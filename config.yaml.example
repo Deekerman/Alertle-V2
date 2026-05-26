@@ -4,6 +4,7 @@
 settings:
   timezone: "America/Toronto"   # Your local timezone
   scan_time: "06:00"            # Daily scan time (local timezone)
+  standings_time: "18:00"       # Time to fire event-series standings alerts (local timezone)
 
 dispatcharr:
   url: "http://192.168.1.x:9191"
@@ -142,3 +143,32 @@ subscriptions: []
 #       show_odds: true
 #     endpoints:
 #       - "discord_main"
+#
+# ── Event Series examples ──────────────────────────────────────────────────────
+# Event-series sports (golf, F1, UFC, tennis) use scope: event_series.
+# No team is specified — Alertle tracks whatever event is active today.
+# standings_alert: true sends a leaderboard each evening at settings.standings_time.
+#
+#   - label: "PGA Tour"
+#     espn_sport: "golf"
+#     espn_league: "pga"
+#     scope: "event_series"
+#     standings_alert: true       # evening leaderboard notification
+#     endpoints:
+#       - "discord_main"
+#
+#   - label: "Formula 1"
+#     espn_sport: "racing"
+#     espn_league: "f1"
+#     scope: "event_series"
+#     standings_alert: false
+#     endpoints:
+#       - "discord_main"
+#
+#   - label: "UFC"
+#     espn_sport: "mma"
+#     espn_league: "ufc"
+#     scope: "event_series"
+#     standings_alert: false
+#     endpoints:
+#       - "pushover_phone"

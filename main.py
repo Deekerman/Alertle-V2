@@ -79,7 +79,8 @@ async def endpoints_page(request: Request):
 @app.get("/api/espn/leagues")
 async def api_leagues():
     leagues = get_supported_leagues()
-    return [{"sport": l.sport, "league": l.league, "label": l.label} for l in leagues]
+    return [{"sport": l.sport, "league": l.league, "label": l.label,
+             "is_event_series": l.is_event_series} for l in leagues]
 
 
 @app.get("/api/espn/teams/{sport}/{league}")

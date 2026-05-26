@@ -28,6 +28,9 @@
       <td>
         {% if sub.scope == 'team' %}
           {{ sub.espn_team_name or sub.espn_team_abbrev or sub.espn_team_id }}
+        {% elif sub.scope == 'event_series' %}
+          <span class="badge">Event Series</span>
+          {% if sub.standings_alert %}<span class="badge">Standings</span>{% endif %}
         {% else %}
           <span class="badge">Whole League</span>
         {% endif %}
@@ -67,7 +70,8 @@
         </select>
       </div>
 
-      <div class="form-row">
+      <!-- Shown for team sports only -->
+      <div id="scope-row" class="form-row">
         <label>Scope</label>
         <div class="toggle-group">
           <label class="toggle-opt">
@@ -88,10 +92,19 @@
         </select>
       </div>
 
+      <!-- Shown for event series only -->
+      <div id="standings-row" class="form-row hidden">
+        <label>Daily Standings</label>
+        <label class="check-opt">
+          <input type="checkbox" id="standings-alert">
+          Send leaderboard alert each evening (configurable via <code>settings.standings_time</code>)
+        </label>
+      </div>
+
       <div class="form-row">
         <label for="sub-label">Label</label>
         <input type="text" id="sub-label" placeholder="e.g. Toronto Maple Leafs" required>
-        <span class="hint">A friendly name — auto-filled when you pick a team</span>
+        <span class="hint">A friendly name — auto-filled when you pick a league or team</span>
       </div>
 
       <div class="form-row">
@@ -121,19 +134,33 @@
 
 {% block scripts %}
 <script>
-  // League list loaded from API
+  // League list loaded from API; includes is_event_series flag
   let leagueData = [];
 
   async function init() {
     const leagues = await apiFetch('/api/espn/leagues');
     leagueData = leagues;
     const sel = document.getElementById('sub-league');
+
+    // Build two optgroups
+    const teamGroup = document.createElement('optgroup');
+    teamGroup.label = 'Team Sports';
+    const eventGroup = document.createElement('optgroup');
+    eventGroup.label = 'Event Series';
+
     leagues.forEach(l => {
       const opt = document.createElement('option');
-      opt.value = JSON.stringify({sport: l.sport, league: l.league});
+      opt.value = JSON.stringify({sport: l.sport, league: l.league, is_event_series: l.is_event_series});
       opt.textContent = l.label;
-      sel.appendChild(opt);
+      if (l.is_event_series) {
+        eventGroup.appendChild(opt);
+      } else {
+        teamGroup.appendChild(opt);
+      }
     });
+
+    sel.appendChild(teamGroup);
+    sel.appendChild(eventGroup);
   }
 
   async function onLeagueChange() {
@@ -142,22 +169,40 @@
     teamSel.innerHTML = '<option value="">Select a team…</option>';
 
     if (!sel.value) return;
-    const {sport, league} = JSON.parse(sel.value);
+    const parsed = JSON.parse(sel.value);
+    const {sport, league, is_event_series} = parsed;
 
-    const scope = document.querySelector('input[name="scope"]:checked').value;
-    if (scope === 'league') {
+    const scopeRow = document.getElementById('scope-row');
+    const teamRow = document.getElementById('team-row');
+    const standingsRow = document.getElementById('standings-row');
+
+    if (is_event_series) {
+      // Event series: hide scope/team, show standings toggle
+      scopeRow.classList.add('hidden');
+      teamRow.classList.add('hidden');
+      standingsRow.classList.remove('hidden');
+      // Set label to league name
       const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
-      if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
-    }
-
-    if (scope === 'team') {
-      const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`);
-      teams.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = JSON.stringify(t);
-        opt.textContent = t.name;
-        teamSel.appendChild(opt);
-      });
+      if (leagueObj) document.getElementById('sub-label').value = leagueObj.label;
+    } else {
+      // Team sport: show scope row, hide standings
+      scopeRow.classList.remove('hidden');
+      standingsRow.classList.add('hidden');
+      const scope = document.querySelector('input[name="scope"]:checked').value;
+      if (scope === 'league') {
+        const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
+        if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
+      }
+      if (scope === 'team') {
+        teamRow.classList.remove('hidden');
+        const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`);
+        teams.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = JSON.stringify(t);
+          opt.textContent = t.name;
+          teamSel.appendChild(opt);
+        });
+      }
     }
   }
 
@@ -167,8 +212,8 @@
     if (scope !== 'team') {
       const sel = document.getElementById('sub-league');
       if (sel.value) {
-        const {sport, league} = JSON.parse(sel.value);
-        const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
+        const parsed = JSON.parse(sel.value);
+        const leagueObj = leagueData.find(l => l.sport === parsed.sport && l.league === parsed.league);
         if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
       }
     }
@@ -184,20 +229,27 @@
     e.preventDefault();
     const leagueVal = document.getElementById('sub-league').value;
     if (!leagueVal) { alert('Please select a league.'); return; }
-    const {sport, league} = JSON.parse(leagueVal);
+    const parsed = JSON.parse(leagueVal);
+    const {sport, league, is_event_series} = parsed;
 
-    const scope = document.querySelector('input[name="scope"]:checked').value;
     const label = document.getElementById('sub-label').value.trim();
     if (!label) { alert('Please enter a label.'); return; }
 
-    let teamId = null, teamName = null, teamAbbrev = null;
-    if (scope === 'team') {
-      const teamVal = document.getElementById('sub-team').value;
-      if (!teamVal) { alert('Please select a team.'); return; }
-      const team = JSON.parse(teamVal);
-      teamId = team.id;
-      teamName = team.name;
-      teamAbbrev = team.abbreviation;
+    let scope, teamId = null, teamName = null, teamAbbrev = null, standingsAlert = false;
+
+    if (is_event_series) {
+      scope = 'event_series';
+      standingsAlert = document.getElementById('standings-alert').checked;
+    } else {
+      scope = document.querySelector('input[name="scope"]:checked').value;
+      if (scope === 'team') {
+        const teamVal = document.getElementById('sub-team').value;
+        if (!teamVal) { alert('Please select a team.'); return; }
+        const team = JSON.parse(teamVal);
+        teamId = team.id;
+        teamName = team.name;
+        teamAbbrev = team.abbreviation;
+      }
     }
 
     const endpoints = [...document.querySelectorAll('input[name="endpoints"]:checked')]
@@ -207,6 +259,7 @@
       label, espn_sport: sport, espn_league: league, scope,
       espn_team_id: teamId, espn_team_name: teamName, espn_team_abbrev: teamAbbrev,
       game_thumbs_league: league,
+      standings_alert: standingsAlert,
       content_overrides: {},
       endpoints,
     };

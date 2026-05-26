@@ -138,6 +138,17 @@ async def _dispatch(
         await mod.send_bundled(matches_subs, endpoint, tz_name, mode=mode)
 
 
+async def _dispatch_standings(endpoint: Endpoint, event_name: str, body: str) -> None:
+    from notifiers import discord, telegram, pushover, ntfy
+    notifier_map = {"discord": discord, "telegram": telegram,
+                    "pushover": pushover, "ntfy": ntfy}
+    mod = notifier_map.get(endpoint.type)
+    if not mod:
+        log.error("Unknown endpoint type: %s", endpoint.type)
+        return
+    await mod.send_standings(event_name, body, endpoint)
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 class AlertScheduler:
@@ -154,10 +165,13 @@ class AlertScheduler:
         """Calculate trigger times for all enabled modes and persist them."""
         game = match.game
         match_json = _serialise_match(match)
+        is_event = game.id.startswith("event:")
 
         for mode in endpoint.modes:
             if mode == "digest":
                 continue  # digest is handled by the daily digest task
+            if mode == "game_summary" and is_event:
+                continue  # final-score summary doesn't apply to event-series
 
             fire_at = _fire_time_for_mode(game, endpoint, mode)
             if fire_at is None:
@@ -221,6 +235,12 @@ class AlertScheduler:
             _mark_sent(self._conn, alert.id)
             return
 
+        if alert.mode == "standings":
+            await self._fire_standings(alert, endpoint, tz_name)
+            _mark_sent(self._conn, alert.id)
+            self._tasks.pop(alert.id, None)
+            return
+
         match = _deserialise_match(alert.game_match_json)
         sub = _find_sub_for_game(match.game, cfg_module.get_subscriptions(raw), alert.endpoint_id)
 
@@ -230,6 +250,64 @@ class AlertScheduler:
             await _dispatch(endpoint, alert.mode, [(match, sub)], tz_name)
             _mark_sent(self._conn, alert.id)
             self._tasks.pop(alert.id, None)
+
+    async def _fire_standings(
+        self,
+        alert: ScheduledAlert,
+        endpoint: Endpoint,
+        tz_name: str,
+    ) -> None:
+        from espn.client import get_standings_summary
+        event_data = json.loads(alert.game_match_json)
+        sport = event_data.get("sport", "")
+        league = event_data.get("league", "")
+        event_name = event_data.get("event_name", "")
+        body = await get_standings_summary(sport, league)
+        await _dispatch_standings(endpoint, event_name, body)
+
+    def schedule_standings(
+        self,
+        sub: Subscription,
+        endpoint: Endpoint,
+        tz_name: str,
+        event_info: dict,
+    ) -> None:
+        """Schedule a daily standings alert for an event-series event."""
+        from zoneinfo import ZoneInfo
+        raw = cfg_module.load_config()
+        standings_time_str = cfg_module.get_standings_time(raw)
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = timezone.utc
+
+        now_local = datetime.now(tz)
+        h, m = (int(x) for x in standings_time_str.split(":"))
+        fire_local = now_local.replace(hour=h, minute=m, second=0, microsecond=0)
+        if fire_local <= now_local:
+            log.debug("Standings time already past today for %s — skipping", event_info.get("event_name"))
+            return
+        fire_at = fire_local.astimezone(timezone.utc)
+
+        today = datetime.now(timezone.utc).date().isoformat()
+        alert_id = f"standings:{event_info['sport']}:{event_info['league']}:{today}:{endpoint.id}"
+
+        alert = ScheduledAlert(
+            id=alert_id,
+            game_id=event_info.get("event_id", ""),
+            endpoint_id=endpoint.id,
+            mode="standings",
+            fire_at=fire_at,
+            game_match_json=json.dumps({
+                "type": "standings",
+                "sport": event_info["sport"],
+                "league": event_info["league"],
+                "label": event_info["label"],
+                "event_name": event_info["event_name"],
+            }),
+        )
+        _upsert_alert(self._conn, alert)
+        log.info("Scheduled standings alert for %s at %s", event_info["event_name"], fire_at)
 
     async def _fire_summary_with_retry(
         self,
@@ -267,21 +345,37 @@ class AlertScheduler:
         result = []
         for alert in _get_pending(self._conn):
             try:
-                match = _deserialise_match(alert.game_match_json)
-                g = match.game
-                result.append({
-                    "id": alert.id,
-                    "endpoint_id": alert.endpoint_id,
-                    "mode": alert.mode,
-                    "fire_at": alert.fire_at.isoformat(),
-                    "game_id": alert.game_id,
-                    "away_team": g.away_team.name,
-                    "home_team": g.home_team.name,
-                    "sport": g.sport,
-                    "league": g.league.upper(),
-                    "channels": match.channels,
-                    "game_start": g.start_time.isoformat(),
-                })
+                if alert.mode == "standings":
+                    data = json.loads(alert.game_match_json)
+                    result.append({
+                        "id": alert.id,
+                        "endpoint_id": alert.endpoint_id,
+                        "mode": "standings",
+                        "fire_at": alert.fire_at.isoformat(),
+                        "game_id": alert.game_id,
+                        "away_team": "",
+                        "home_team": data.get("event_name", ""),
+                        "sport": data.get("sport", ""),
+                        "league": data.get("league", "").upper(),
+                        "channels": [],
+                        "game_start": alert.fire_at.isoformat(),
+                    })
+                else:
+                    match = _deserialise_match(alert.game_match_json)
+                    g = match.game
+                    result.append({
+                        "id": alert.id,
+                        "endpoint_id": alert.endpoint_id,
+                        "mode": alert.mode,
+                        "fire_at": alert.fire_at.isoformat(),
+                        "game_id": alert.game_id,
+                        "away_team": g.away_team.name,
+                        "home_team": g.home_team.name,
+                        "sport": g.sport,
+                        "league": g.league.upper(),
+                        "channels": match.channels,
+                        "game_start": g.start_time.isoformat(),
+                    })
             except Exception as e:
                 log.warning("Failed to deserialise alert %s: %s", alert.id, e)
         return sorted(result, key=lambda x: x["fire_at"])
@@ -302,9 +396,19 @@ class AlertScheduler:
             log.warning("Endpoint %s not found — cannot test alert %s", endpoint_id, alert_id)
             return False
 
+        tz_name = cfg_module.get_timezone(raw)
+
+        if mode == "standings":
+            temp_alert = ScheduledAlert(
+                id=alert_id, game_id="", endpoint_id=endpoint_id,
+                mode="standings", fire_at=datetime.now(timezone.utc),
+                game_match_json=match_json,
+            )
+            await self._fire_standings(temp_alert, endpoint, tz_name)
+            return True
+
         match = _deserialise_match(match_json)
         sub = _find_sub_for_game(match.game, cfg_module.get_subscriptions(raw), endpoint_id)
-        tz_name = cfg_module.get_timezone(raw)
         await _dispatch(endpoint, mode, [(match, sub)], tz_name)
         return True
 

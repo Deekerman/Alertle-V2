@@ -12,16 +12,26 @@ from datetime import datetime, timedelta, timezone
 
 import config as cfg_module
 from dispatcharr.client import get_client as get_dispatcharr
-from epg.matcher import find_channels_for_game
+from epg.matcher import find_channels_for_event, find_channels_for_game, find_event_earliest_start
 from epg.xmltv import fetch_xmltv
-from espn.client import get_games_for_subscription
-from models import GameMatch
+from espn.client import get_active_event, get_games_for_subscription
+from models import ESPNGame, ESPNTeam, GameMatch
 from scheduler import AlertScheduler
 
 log = logging.getLogger(__name__)
 
 # How many days ahead to scan
 LOOKAHEAD_DAYS = 7
+
+# Base EPG search terms per event-series league (augmented with event name at runtime)
+EVENT_BASE_TERMS: dict[tuple[str, str], list[str]] = {
+    ("golf",   "pga"):  ["Golf", "PGA"],
+    ("golf",   "lpga"): ["Golf", "LPGA"],
+    ("racing", "f1"):   ["Formula 1", "F1", "Formula One", "Grand Prix"],
+    ("mma",    "ufc"):  ["UFC", "MMA"],
+    ("tennis", "atp"):  ["Tennis", "ATP"],
+    ("tennis", "wta"):  ["Tennis", "WTA"],
+}
 
 
 async def run_scan(scheduler: AlertScheduler) -> dict:
@@ -95,6 +105,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     games_seen: set[str] = set()
 
     for sub in subs:
+        if sub.scope == "event_series":
+            continue  # handled in the event-series loop below
+
         try:
             games = await get_games_for_subscription(
                 sport=sub.espn_sport,
@@ -130,6 +143,69 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 scheduled_count += 1
 
             games_seen.add(game.id)
+
+    # ── Event Series ──────────────────────────────────────────────────────────
+    today_utc = now.date()
+    tz_name = cfg_module.get_timezone(raw)
+
+    for sub in subs:
+        if sub.scope != "event_series":
+            continue
+        try:
+            event = await get_active_event(sub.espn_sport, sub.espn_league)
+            if not event:
+                log.info("[%s] No active event for %s/%s", sub.label, sub.espn_sport, sub.espn_league)
+                continue
+
+            event_name = event["name"]
+            base_terms = EVENT_BASE_TERMS.get((sub.espn_sport, sub.espn_league), [])
+            event_terms = base_terms + ([event_name] if event_name else [])
+
+            channels, description = find_channels_for_event(event_terms, epg_programs, today_utc)
+            if not channels:
+                no_channel_count += 1
+                log.debug("[%s] No EPG channel found for event: %s", sub.label, event_name)
+
+            # Determine start time: earliest EPG match today, or noon UTC as fallback
+            earliest = find_event_earliest_start(event_terms, epg_programs, today_utc)
+            event_start = earliest if earliest else now.replace(hour=12, minute=0, second=0, microsecond=0)
+
+            today_str = today_utc.isoformat()
+            fake_game = ESPNGame(
+                id=f"event:{sub.espn_sport}:{sub.espn_league}:{event['id']}:{today_str}",
+                sport=sub.espn_sport,
+                league=sub.espn_league,
+                home_team=ESPNTeam(
+                    id="event", name=event_name, abbreviation="",
+                    short_name=event_name, location="",
+                ),
+                away_team=ESPNTeam(
+                    id="event", name="", abbreviation="", short_name="", location="",
+                ),
+                start_time=event_start,
+            )
+
+            match = GameMatch(game=fake_game, channels=channels, program_description=description)
+
+            for ep in endpoints:
+                if ep.id not in sub.endpoints:
+                    continue
+                scheduler.schedule_game(match, sub, ep)
+                if sub.standings_alert:
+                    scheduler.schedule_standings(sub, ep, tz_name, {
+                        "sport": sub.espn_sport,
+                        "league": sub.espn_league,
+                        "label": sub.label,
+                        "event_name": event_name,
+                        "event_id": event["id"],
+                    })
+                scheduled_count += 1
+
+            games_seen.add(fake_game.id)
+            log.info("[%s] Event: %s — %d channels", sub.label, event_name, len(channels))
+
+        except Exception as e:
+            log.error("Event series scan failed for %s: %s", sub.label, e)
 
     # Arm any newly added tasks
     scheduler.arm_all_pending()

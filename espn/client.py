@@ -46,6 +46,16 @@ SUPPORTED_LEAGUES: list[tuple[str, str, str]] = [
     ("soccer",     "nwsl",                   "NWSL"),
 ]
 
+# Event-series sports: no home/away teams, just events (tournaments, races, cards)
+EVENT_SERIES_LEAGUES: list[tuple[str, str, str]] = [
+    ("golf",    "pga",  "PGA Tour"),
+    ("golf",    "lpga", "LPGA Tour"),
+    ("racing",  "f1",   "Formula 1"),
+    ("mma",     "ufc",  "UFC"),
+    ("tennis",  "atp",  "ATP Tennis"),
+    ("tennis",  "wta",  "WTA Tennis"),
+]
+
 
 async def _get(url: str, params: dict | None = None) -> dict:
     async with httpx.AsyncClient(timeout=10) as client:
@@ -58,10 +68,15 @@ async def _get(url: str, params: dict | None = None) -> dict:
 
 def get_supported_leagues() -> list[ESPNLeague]:
     """Return the curated list of supported leagues for the UI dropdown."""
-    return [
-        ESPNLeague(sport=sport, league=league, label=label)
+    team_leagues = [
+        ESPNLeague(sport=sport, league=league, label=label, is_event_series=False)
         for sport, league, label in SUPPORTED_LEAGUES
     ]
+    event_leagues = [
+        ESPNLeague(sport=sport, league=league, label=label, is_event_series=True)
+        for sport, league, label in EVENT_SERIES_LEAGUES
+    ]
+    return team_leagues + event_leagues
 
 
 # ── Teams ─────────────────────────────────────────────────────────────────────
@@ -274,3 +289,73 @@ async def get_game_status(sport: str, league: str, game_id: str) -> ESPNGame | N
         if str(event.get("id")) == game_id:
             return _parse_game(event, sport, league)
     return None
+
+
+# ── Event Series ──────────────────────────────────────────────────────────────
+
+async def get_active_event(sport: str, league: str) -> dict | None:
+    """
+    Return today's active event for an event-series sport.
+    Returns {id, name, date, status} or None if no event today.
+    """
+    url = f"{BASE}/{sport}/{league}/scoreboard"
+    try:
+        data = await _get(url)
+    except Exception as e:
+        log.error("ESPN active event fetch failed (%s/%s): %s", sport, league, e)
+        return None
+
+    events = data.get("events", [])
+    if not events:
+        return None
+    event = events[0]
+    event_id = str(event.get("id", ""))
+    if not event_id:
+        return None
+    return {
+        "id": event_id,
+        "name": event.get("name", event.get("shortName", "")),
+        "date": event.get("date", ""),
+        "status": event.get("status", {}).get("type", {}).get("name", ""),
+    }
+
+
+async def get_standings_summary(sport: str, league: str) -> str:
+    """
+    Fetch and format a top-10 leaderboard/standings for an event-series sport.
+    Returns a plain-text string for embedding in a notification.
+    """
+    url = f"{BASE}/{sport}/{league}/scoreboard"
+    try:
+        data = await _get(url)
+    except Exception as e:
+        log.error("ESPN standings fetch failed (%s/%s): %s", sport, league, e)
+        return "Failed to fetch standings."
+
+    events = data.get("events", [])
+    if not events:
+        return "No active event found."
+
+    event = events[0]
+    competition = (event.get("competitions") or [{}])[0]
+    competitors = competition.get("competitors", [])
+    if not competitors:
+        return "No standings available yet."
+
+    lines = []
+    for comp in competitors[:10]:
+        pos = (comp.get("status") or {})
+        if isinstance(pos, dict):
+            pos_text = pos.get("position", {}).get("displayText", "")
+        else:
+            pos_text = ""
+        athlete = comp.get("athlete") or comp.get("team") or {}
+        name = athlete.get("displayName", athlete.get("name", ""))
+        score = str(comp.get("score", "") or comp.get("displayScore", ""))
+        if name:
+            line = f"{pos_text + '. ' if pos_text else ''}{name}"
+            if score and score not in ("", "0"):
+                line += f"  {score}"
+            lines.append(line)
+
+    return "\n".join(lines) if lines else "No standings data available."

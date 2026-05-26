@@ -70,6 +70,15 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
     text = "\n\n─────────────\n\n".join(parts)
     return await _send_message(token, chat_id, text)
 
+async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:
+    raw = endpoint._raw
+    token = raw.get("bot_token", "")
+    chat_id = raw.get("chat_id", "")
+    if not token or not chat_id:
+        return False
+    text = f"<b>🏆 {event_name} — Standings</b>\n{body or 'No standings data available.'}"
+    return await _send_message(token, chat_id, text)
+
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
                       endpoint: Endpoint, tz_name: str) -> bool:
     raw = endpoint._raw

@@ -92,7 +92,11 @@ def build_game_lines(
     """
     game = match.game
 
-    title = f"{game.away_team.name} vs {game.home_team.name}"
+    is_event = game.id.startswith("event:") or sub.scope == "event_series"
+    if is_event:
+        title = game.home_team.name or f"{game.sport.title()} Event"
+    else:
+        title = f"{game.away_team.name} vs {game.home_team.name}"
     time_str = format_game_time(game.start_time, tz_name)
     channels_str = "\n".join(match.channels) if match.channels else ""
 

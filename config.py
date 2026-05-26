@@ -51,6 +51,11 @@ def get_scan_time(raw: dict | None = None) -> str:
     return get_settings(raw).get("scan_time", "06:00")
 
 
+def get_standings_time(raw: dict | None = None) -> str:
+    """Time to fire daily standings alerts (local timezone). Default 18:00."""
+    return get_settings(raw).get("standings_time", "18:00")
+
+
 def get_dispatcharr(raw: dict | None = None) -> dict:
     raw = raw or _load_raw()
     return raw.get("dispatcharr", {})
@@ -142,5 +147,6 @@ def get_subscriptions(raw: dict | None = None) -> list[Subscription]:
             game_thumbs_league=s.get("game_thumbs_league", s.get("espn_league", "")),
             content_overrides=s.get("content_overrides", {}),
             endpoints=s.get("endpoints", []),
+            standings_alert=s.get("standings_alert", False),
         ))
     return subs
