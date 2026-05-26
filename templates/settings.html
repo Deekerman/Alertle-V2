@@ -75,10 +75,12 @@
     <div class="form-row">
       <label for="dispatcharr_auth_scheme">Auth Scheme</label>
       <select id="dispatcharr_auth_scheme" name="dispatcharr_auth_scheme">
-        <option value="Token" {% if cfg.get('dispatcharr', {}).get('auth_scheme', 'Token') == 'Token' %}selected{% endif %}>Token (DRF default)</option>
-        <option value="Bearer" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Bearer' %}selected{% endif %}>Bearer (JWT / newer)</option>
+        <option value="X-API-Key" {% if cfg.get('dispatcharr', {}).get('auth_scheme', 'X-API-Key') == 'X-API-Key' %}selected{% endif %}>X-API-Key (default)</option>
+        <option value="ApiKey" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'ApiKey' %}selected{% endif %}>Authorization: ApiKey</option>
+        <option value="Token" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Token' %}selected{% endif %}>Authorization: Token (legacy)</option>
+        <option value="Bearer" {% if cfg.get('dispatcharr', {}).get('auth_scheme') == 'Bearer' %}selected{% endif %}>Authorization: Bearer (legacy)</option>
       </select>
-      <span class="hint">Try "Bearer" if "Token" returns 401 Unauthorized</span>
+      <span class="hint">Dispatcharr uses <code>X-API-Key</code> by default. Try <code>ApiKey</code> if that fails.</span>
     </div>
     <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>

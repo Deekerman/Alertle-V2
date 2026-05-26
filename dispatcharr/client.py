@@ -1,6 +1,5 @@
 """
 Alertle-V2 — Dispatcharr API client.
-Replaces the old raw XMLTV fetcher with proper API calls.
 """
 from __future__ import annotations
 
@@ -15,10 +14,26 @@ from models import EPGChannel, EPGProgram
 log = logging.getLogger(__name__)
 
 
+def _format_channel_number(raw) -> str:
+    """Format a channel number value (may be float like 101.0) to a clean string."""
+    if not raw and raw != 0:
+        return ""
+    try:
+        f = float(raw)
+        return str(int(f)) if f == int(f) else str(f)
+    except (ValueError, TypeError):
+        return str(raw).strip()
+
+
 class DispatcharrClient:
-    def __init__(self, base_url: str, api_key: str, auth_scheme: str = "Token"):
+    def __init__(self, base_url: str, api_key: str, auth_scheme: str = "X-API-Key"):
         self.base_url = base_url.rstrip("/")
-        self.headers = {"Authorization": f"{auth_scheme} {api_key}"}
+        # Dispatcharr primary auth: X-API-Key header
+        # Also supports: Authorization: ApiKey <key>
+        if auth_scheme == "X-API-Key":
+            self.headers = {"X-API-Key": api_key}
+        else:
+            self.headers = {"Authorization": f"{auth_scheme} {api_key}"}
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
         url = f"{self.base_url}{path}"
@@ -41,13 +56,12 @@ class DispatcharrClient:
             data = await self._get("/api/channels/")
             channels = []
             for item in (data if isinstance(data, list) else data.get("results", [])):
+                raw_num = (item.get("channel_number") or item.get("effective_channel_number")
+                           or item.get("number") or item.get("lcn") or "")
                 channels.append(EPGChannel(
                     id=str(item.get("id", "")),
                     name=item.get("name", item.get("channel_name", "")),
-                    channel_number=str(
-                        item.get("number") or item.get("channel_number") or
-                        item.get("lcn") or item.get("stream_profile_number") or ""
-                    ).strip(),
+                    channel_number=_format_channel_number(raw_num),
                 ))
             return channels
         except Exception as e:
@@ -61,15 +75,12 @@ class DispatcharrClient:
         start: datetime | None = None,
         stop: datetime | None = None,
     ) -> list[EPGProgram]:
-        """
-        Fetch EPG programs within a time window.
-        start/stop are UTC datetimes.
-        """
+        """Fetch EPG programs within a time window (UTC datetimes)."""
         params: dict[str, str] = {}
         if start:
-            params["start"] = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+            params["start_time"] = start.strftime("%Y-%m-%dT%H:%M:%SZ")
         if stop:
-            params["stop"] = stop.strftime("%Y-%m-%dT%H:%M:%SZ")
+            params["end_time"] = stop.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         try:
             data = await self._get("/api/epg/programs/", params)
@@ -81,14 +92,21 @@ class DispatcharrClient:
         items = data if isinstance(data, list) else data.get("results", [])
         for item in items:
             try:
+                # Dispatcharr uses start_time/end_time; fall back to start/stop for compat
+                start_str = item.get("start_time") or item.get("start", "")
+                stop_str  = item.get("end_time")   or item.get("stop", "")
                 start_dt = datetime.fromisoformat(
-                    item["start"].replace("Z", "+00:00")
+                    start_str.replace("Z", "+00:00")
                 ).replace(tzinfo=timezone.utc)
                 stop_dt = datetime.fromisoformat(
-                    item["stop"].replace("Z", "+00:00")
+                    stop_str.replace("Z", "+00:00")
                 ).replace(tzinfo=timezone.utc)
+                # Dispatcharr links programs to channels via tvg_id
+                channel_id = str(
+                    item.get("tvg_id") or item.get("channel_id") or item.get("channel") or ""
+                )
                 programs.append(EPGProgram(
-                    channel_id=str(item.get("channel_id", item.get("channel", ""))),
+                    channel_id=channel_id,
                     channel_name=item.get("channel_name", ""),
                     title=item.get("title", ""),
                     subtitle=item.get("sub_title", item.get("subtitle", "")),
@@ -111,10 +129,6 @@ class DispatcharrClient:
             return []
 
     async def create_recording(self, program_data: dict) -> dict | None:
-        """
-        Queue a recording. program_data should match Dispatcharr's recording schema.
-        Returns the created recording object, or None on failure.
-        """
         try:
             return await self._post("/api/recordings/", program_data)
         except Exception as e:
@@ -122,12 +136,11 @@ class DispatcharrClient:
             return None
 
     async def is_already_recording(self, channel_id: str, start: datetime) -> bool:
-        """Check if a recording already exists for this channel + start time."""
         recordings = await self.get_recordings()
         start_str = start.strftime("%Y-%m-%dT%H:%M:%S")
         for r in recordings:
             if str(r.get("channel_id", r.get("channel", ""))) == channel_id:
-                if start_str in r.get("start", ""):
+                if start_str in r.get("start_time", r.get("start", "")):
                     return True
         return False
 
@@ -150,5 +163,5 @@ def get_client(cfg: dict) -> DispatcharrClient | None:
     key = d.get("api_key", "").strip()
     if not url or not key:
         return None
-    scheme = d.get("auth_scheme", "Token")
+    scheme = d.get("auth_scheme", "X-API-Key")
     return DispatcharrClient(base_url=url, api_key=key, auth_scheme=scheme)
