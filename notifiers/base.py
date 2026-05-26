@@ -87,7 +87,7 @@ def _format_schedule(schedule: list[dict], tz_name: str) -> str:
         tz = ZoneInfo(tz_name)
     except Exception:
         tz = None
-    lines = []
+    blocks = []
     for entry in schedule:
         try:
             start = datetime.fromisoformat(entry["start"])
@@ -96,11 +96,11 @@ def _format_schedule(schedule: list[dict], tz_name: str) -> str:
                 time_part = local.strftime("%-I:%M %p")
             else:
                 time_part = start.strftime("%H:%M UTC")
-            channels = ", ".join(entry.get("channels", []))
-            lines.append(f"{time_part}  {channels}")
+            block_lines = [time_part] + list(entry.get("channels", []))
+            blocks.append("\n".join(block_lines))
         except Exception:
             continue
-    return "\n".join(lines)
+    return "\n\n".join(blocks)
 
 
 def build_game_lines(
