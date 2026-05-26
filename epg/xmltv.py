@@ -97,6 +97,7 @@ def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
         title    = prog.findtext("title") or ""
         subtitle = prog.findtext("sub-title") or ""
         desc     = prog.findtext("desc") or ""
+        is_live  = prog.find("live") is not None
 
         programs.append(EPGProgram(
             channel_id=channel_id,
@@ -107,6 +108,7 @@ def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
             description=desc,
             start=start,
             stop=stop,
+            is_live=is_live,
         ))
 
     log.debug("XMLTV parsed %d programs", len(programs))

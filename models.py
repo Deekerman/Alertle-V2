@@ -68,6 +68,7 @@ class EPGProgram:
     start: datetime     # UTC
     stop: datetime      # UTC
     channel_number: str = ""
+    is_live: bool = False  # True when XMLTV <live/> element is present
 
 
 # ── Match — ESPN game + EPG channels it was found on ─────────────────────────
