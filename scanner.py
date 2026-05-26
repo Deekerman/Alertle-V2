@@ -178,6 +178,12 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
             # starting at 1 prevents a manual scan (or first-run) from firing
             # same-day push alerts before the user's configured lead time.
             days_with_coverage = 0
+
+            # Standings alert fires today — only schedule it if the event has
+            # live EPG coverage today (i.e. the tournament is actually running today).
+            today_has_coverage = bool(
+                find_channels_for_event(event_terms, epg_programs, now.date())
+            )
             standings_scheduled = False
 
             for day_offset in range(1, LOOKAHEAD_DAYS + 1):
@@ -214,8 +220,8 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                     if ep.id not in sub.endpoints:
                         continue
                     scheduler.schedule_game(match, sub, ep)
-                    # Schedule today's standings alert once per endpoint (not per day)
-                    if sub.standings_alert and event and not standings_scheduled:
+                    # Schedule today's standings alert only when event is live today
+                    if sub.standings_alert and event and today_has_coverage and not standings_scheduled:
                         scheduler.schedule_standings(sub, ep, tz_name, {
                             "sport": sub.espn_sport,
                             "league": sub.espn_league,
