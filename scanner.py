@@ -170,12 +170,14 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
             if event and event_name and event_name not in event_terms:
                 event_terms.append(event_name)
 
-            # Scan EVERY day in the lookahead window — golf/F1/etc. have multi-day
-            # events starting later in the week, so checking only today misses them.
+            # Scan the lookahead window starting from TOMORROW.
+            # Today's events are already covered by yesterday's scheduled scan;
+            # starting at 1 prevents a manual scan (or first-run) from firing
+            # same-day push alerts before the user's configured lead time.
             days_with_coverage = 0
             standings_scheduled = False
 
-            for day_offset in range(LOOKAHEAD_DAYS):
+            for day_offset in range(1, LOOKAHEAD_DAYS + 1):
                 check_dt = now + timedelta(days=day_offset)
                 check_date = check_dt.date()
 
