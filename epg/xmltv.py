@@ -66,13 +66,19 @@ def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
         log.error("XMLTV XML parse error: %s", e)
         return []
 
-    # Build channel id → display name map
-    channel_names: dict[str, str] = {}
+    # Build channel id → display name + number maps
+    channel_names:   dict[str, str] = {}
+    channel_numbers: dict[str, str] = {}
     for ch in root.findall("channel"):
-        ch_id = ch.get("id", "")
+        ch_id   = ch.get("id", "")
         display = ch.findtext("display-name") or ch_id
+        lcn     = (ch.findtext("lcn") or "").strip()
         if ch_id:
             channel_names[ch_id] = display
+            if lcn:
+                channel_numbers[ch_id] = lcn        # explicit <lcn> wins
+            elif ch_id.isdigit():
+                channel_numbers[ch_id] = ch_id      # numeric id IS the channel number
 
     programs: list[EPGProgram] = []
     for prog in root.findall("programme"):
@@ -95,6 +101,7 @@ def _parse_xmltv_content(content: bytes) -> list[EPGProgram]:
         programs.append(EPGProgram(
             channel_id=channel_id,
             channel_name=channel_name,
+            channel_number=channel_numbers.get(channel_id, ""),
             title=title,
             subtitle=subtitle,
             description=desc,
