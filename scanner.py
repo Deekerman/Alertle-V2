@@ -38,6 +38,23 @@ EVENT_BASE_TERMS: dict[tuple[str, str], list[str]] = {
     ("tennis", "wta"):  ["WTA Tennis", "WTA Tour"],
 }
 
+# Programs whose title/subtitle match any of these terms are excluded even if they
+# also match the base terms — used to filter studio shows, analysis, and highlight
+# programmes that are technically "live" but are not actual event coverage.
+EVENT_EXCLUDE_TERMS: dict[tuple[str, str], list[str]] = {
+    ("golf", "pga"):  [
+        "the cut", "inside the pga", "golf academy", "school of golf",
+        "golf central", "morning drive", "live from", "highlights",
+        "best of", "on the range",
+    ],
+    ("golf", "lpga"): ["highlights", "best of"],
+    ("golf", "eur"):  ["highlights", "best of"],
+    ("racing", "f1"): ["highlights", "best of", "classic"],
+    ("mma",  "ufc"):  ["highlights", "best of", "embedded"],
+    ("tennis", "atp"): ["highlights", "best of"],
+    ("tennis", "wta"): ["highlights", "best of"],
+}
+
 
 async def run_scan(scheduler: AlertScheduler) -> dict:
     """
@@ -181,6 +198,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
             # EPG matching uses only the verified base terms for this league.
             event_terms = list(base_terms)
+            exclude_terms = EVENT_EXCLUDE_TERMS.get((sub.espn_sport, sub.espn_league), [])
 
             # Scan the lookahead window starting from TOMORROW.
             # Today's events are already covered by yesterday's scheduled scan;
@@ -190,7 +208,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
             # Standings alert fires today — only schedule it if the event has
             # live EPG coverage today (i.e. the tournament is actually running today).
-            today_result = find_channels_for_event(event_terms, epg_programs, now.date())
+            today_result = find_channels_for_event(
+                event_terms, epg_programs, now.date(), exclude_terms=exclude_terms
+            )
             today_has_coverage = bool(today_result[0])
             standings_scheduled = False
 
@@ -199,7 +219,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 check_date = check_dt.date()
 
                 channels, description, epg_title, epg_subtitle = find_channels_for_event(
-                    event_terms, epg_programs, check_date
+                    event_terms, epg_programs, check_date, exclude_terms=exclude_terms
                 )
                 if not channels:
                     continue
@@ -216,7 +236,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
                 display_name = (_sub if _sub and not _is_round else _title_clean) or event_name or sub.label
 
-                earliest = find_event_earliest_start(event_terms, epg_programs, check_date)
+                earliest = find_event_earliest_start(
+                    event_terms, epg_programs, check_date, exclude_terms=exclude_terms
+                )
                 event_start = earliest if earliest else check_dt.replace(
                     hour=12, minute=0, second=0, microsecond=0
                 )

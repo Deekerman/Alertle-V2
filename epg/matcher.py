@@ -102,12 +102,14 @@ def find_channels_for_event(
     event_terms: list[str],
     programs: list[EPGProgram],
     event_date: date,
+    exclude_terms: list[str] | None = None,
 ) -> tuple[list[str], str, str, str]:
     """
     Match EPG programs for an event-series sport (golf, F1, UFC, tennis, etc.).
     Full-day window: any program starting on event_date (UTC) whose title or
     subtitle contains at least one of the event_terms AND is flagged <live/>.
     Requires is_live=True to exclude replays and highlight shows.
+    Programs matching any exclude_terms are skipped (studio/analysis shows).
 
     Returns (channels, description, first_title, first_subtitle).
     """
@@ -123,6 +125,8 @@ def find_channels_for_event(
             continue
         haystack = f"{prog.title} {prog.subtitle}"
         if not _text_contains_any(haystack, event_terms):
+            continue
+        if exclude_terms and _text_contains_any(haystack, exclude_terms):
             continue
         if prog.channel_name and prog.channel_name not in matched:
             if prog.channel_number:
@@ -146,6 +150,7 @@ def find_event_earliest_start(
     event_terms: list[str],
     programs: list[EPGProgram],
     event_date: date,
+    exclude_terms: list[str] | None = None,
 ) -> "Optional[object]":
     """
     Find the earliest live EPG program start time matching event_terms on event_date.
@@ -159,5 +164,6 @@ def find_event_earliest_start(
             continue
         haystack = f"{prog.title} {prog.subtitle}"
         if _text_contains_any(haystack, event_terms):
-            starts.append(prog.start)
+            if not exclude_terms or not _text_contains_any(haystack, exclude_terms):
+                starts.append(prog.start)
     return min(starts) if starts else None
