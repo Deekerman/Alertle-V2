@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Endpoints</h1>
-  <button class="btn btn-primary" onclick="openModal('add-ep-modal')">+ Add Endpoint</button>
+  <button class="btn btn-primary" onclick="openAddModal()">+ Add Endpoint</button>
 </div>
 
 {% if endpoints %}
@@ -31,7 +31,9 @@
       </td>
       <td>{{ ep.lead_time_minutes }} min</td>
       <td>±{{ ep.bundle_window_minutes }} min</td>
-      <td>
+      <td class="row-actions">
+        <button class="btn btn-secondary btn-sm"
+                onclick='editEndpoint({{ ep._raw | tojson }})'>Edit</button>
         <button class="btn btn-danger btn-sm"
                 onclick="deleteEndpoint('{{ ep.id | e }}')">Delete</button>
       </td>
@@ -45,12 +47,12 @@
 </div>
 {% endif %}
 
-<!-- Add Endpoint Modal -->
-<div class="modal-overlay hidden" id="add-ep-modal">
+<!-- Add / Edit Endpoint Modal -->
+<div class="modal-overlay hidden" id="ep-modal">
   <div class="modal modal--wide">
     <div class="modal-header">
-      <h2>Add Endpoint</h2>
-      <button class="modal-close" onclick="closeModal('add-ep-modal')">✕</button>
+      <h2 id="ep-modal-title">Add Endpoint</h2>
+      <button class="modal-close" onclick="closeEpModal()">✕</button>
     </div>
     <form id="ep-form" onsubmit="saveEndpoint(event)">
 
@@ -166,17 +168,18 @@
 
       <hr class="divider">
 
-      <!-- Content defaults -->
+      <!-- Content overrides -->
       <div class="form-row">
-        <label>Default Content</label>
-        <div class="check-group check-group--row">
-          <label class="check-opt"><input type="checkbox" name="content" value="show_venue" checked> Venue</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_broadcast" checked> Broadcast</label>
+        <label>Override Global Notification Defaults <span class="hint">(optional — leave unchecked to use Settings defaults)</span></label>
+        <div class="check-group check-group--row" style="margin-top:.4rem">
+          <label class="check-opt"><input type="checkbox" name="content" value="show_venue"> Venue</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_broadcast"> Broadcast</label>
           <label class="check-opt"><input type="checkbox" name="content" value="show_odds"> Odds</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_series" checked> Series</label>
-          <label class="check-opt"><input type="checkbox" name="content" value="show_week_context" checked> Week/Season</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_series"> Series</label>
+          <label class="check-opt"><input type="checkbox" name="content" value="show_week_context"> Week/Season</label>
           <label class="check-opt"><input type="checkbox" name="content" value="show_key_stats"> Key Stats</label>
         </div>
+        <span class="hint">Only checked fields will override the global default. Unchecked = follow Settings.</span>
       </div>
 
       <hr class="divider">
@@ -232,8 +235,8 @@
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('add-ep-modal')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add Endpoint</button>
+        <button type="button" class="btn btn-secondary" onclick="closeEpModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="ep-submit-btn">Add Endpoint</button>
       </div>
     </form>
   </div>
@@ -242,6 +245,100 @@
 
 {% block scripts %}
 <script>
+  let _editMode = false;
+
+  function openAddModal() {
+    _editMode = false;
+    resetForm();
+    document.getElementById('ep-modal-title').textContent = 'Add Endpoint';
+    document.getElementById('ep-submit-btn').textContent = 'Add Endpoint';
+    document.getElementById('ep-id').readOnly = false;
+    openModal('ep-modal');
+  }
+
+  function closeEpModal() {
+    closeModal('ep-modal');
+    resetForm();
+  }
+
+  function resetForm() {
+    document.getElementById('ep-form').reset();
+    document.querySelectorAll('.creds').forEach(el => el.classList.add('hidden'));
+    document.getElementById('ep-id').readOnly = false;
+    // Reset lead-time default
+    document.getElementById('lead-time').value = '30';
+    document.getElementById('bundle-window').value = '10';
+    document.getElementById('precision').value = '0';
+    document.getElementById('digest-time').value = '08:00';
+    document.getElementById('gt-type').value = 'thumb';
+    document.getElementById('gt-style').value = '1';
+    document.getElementById('gt-aspect').value = '16-9';
+    document.getElementById('gt-badge').value = '';
+    document.getElementById('gt-fallback').checked = true;
+    // Reset modes to default (lead_time only)
+    document.querySelectorAll('input[name="modes"]').forEach(cb => {
+      cb.checked = cb.value === 'lead_time';
+    });
+    // Clear content overrides
+    document.querySelectorAll('input[name="content"]').forEach(cb => cb.checked = false);
+  }
+
+  function editEndpoint(data) {
+    _editMode = true;
+    resetForm();
+
+    document.getElementById('ep-modal-title').textContent = 'Edit Endpoint';
+    document.getElementById('ep-submit-btn').textContent = 'Save Changes';
+    document.getElementById('ep-id').value = data.id || '';
+    document.getElementById('ep-id').readOnly = true;
+
+    // Type
+    document.getElementById('ep-type').value = data.type || '';
+    onTypeChange();
+
+    // Credentials
+    if (data.type === 'discord') {
+      document.getElementById('discord-webhook').value = data.webhook_url || '';
+    } else if (data.type === 'telegram') {
+      document.getElementById('telegram-token').value = data.bot_token || '';
+      document.getElementById('telegram-chat').value = data.chat_id || '';
+    } else if (data.type === 'pushover') {
+      document.getElementById('pushover-token').value = data.app_token || '';
+      document.getElementById('pushover-user').value = data.user_key || '';
+    } else if (data.type === 'ntfy') {
+      document.getElementById('ntfy-url').value = data.url || 'https://ntfy.sh';
+      document.getElementById('ntfy-topic').value = data.topic || '';
+    }
+
+    // Modes
+    const modes = data.modes || [];
+    document.querySelectorAll('input[name="modes"]').forEach(cb => {
+      cb.checked = modes.includes(cb.value);
+    });
+
+    // Numeric settings
+    if (data.lead_time_minutes != null) document.getElementById('lead-time').value = String(data.lead_time_minutes);
+    if (data.precision_minutes != null) document.getElementById('precision').value = String(data.precision_minutes);
+    if (data.digest_time) document.getElementById('digest-time').value = data.digest_time;
+    if (data.bundle_window_minutes != null) document.getElementById('bundle-window').value = String(data.bundle_window_minutes);
+
+    // Content overrides (only check fields explicitly set)
+    const cd = data.content_defaults || {};
+    document.querySelectorAll('input[name="content"]').forEach(cb => {
+      cb.checked = cd.hasOwnProperty(cb.value) ? cd[cb.value] : false;
+    });
+
+    // Game-Thumbs
+    const gt = data.game_thumbs || {};
+    if (gt.type) document.getElementById('gt-type').value = gt.type;
+    if (gt.style) document.getElementById('gt-style').value = String(gt.style);
+    if (gt.aspect) document.getElementById('gt-aspect').value = gt.aspect;
+    document.getElementById('gt-badge').value = gt.badge || '';
+    document.getElementById('gt-fallback').checked = gt.fallback !== false;
+
+    openModal('ep-modal');
+  }
+
   function onTypeChange() {
     document.querySelectorAll('.creds').forEach(el => el.classList.add('hidden'));
     const type = document.getElementById('ep-type').value;
@@ -256,15 +353,11 @@
     const modes = [...document.querySelectorAll('input[name="modes"]:checked')].map(c => c.value);
     if (!modes.length) { alert('Select at least one notification mode.'); return; }
 
-    const contentChecked = [...document.querySelectorAll('input[name="content"]:checked')].map(c => c.value);
-    const content_defaults = {
-      show_venue: contentChecked.includes('show_venue'),
-      show_broadcast: contentChecked.includes('show_broadcast'),
-      show_odds: contentChecked.includes('show_odds'),
-      show_series: contentChecked.includes('show_series'),
-      show_week_context: contentChecked.includes('show_week_context'),
-      show_key_stats: contentChecked.includes('show_key_stats'),
-    };
+    // Content overrides — only include fields that are explicitly checked
+    const content_defaults = {};
+    document.querySelectorAll('input[name="content"]').forEach(cb => {
+      if (cb.checked) content_defaults[cb.value] = true;
+    });
 
     const payload = {
       id: document.getElementById('ep-id').value.trim(),

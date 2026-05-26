@@ -16,15 +16,30 @@ _GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
 
 
 def _effective_content(endpoint: Endpoint, sub: Subscription) -> ContentDefaults:
-    """Merge endpoint defaults with subscription overrides."""
-    cd = ContentDefaults(
-        show_venue=endpoint.content_defaults.show_venue,
-        show_broadcast=endpoint.content_defaults.show_broadcast,
-        show_odds=endpoint.content_defaults.show_odds,
-        show_series=endpoint.content_defaults.show_series,
-        show_week_context=endpoint.content_defaults.show_week_context,
-        show_key_stats=endpoint.content_defaults.show_key_stats,
-    )
+    """
+    Merge content settings in priority order:
+      1. Global notification_defaults (from Settings)
+      2. Endpoint content_defaults (overrides global)
+      3. Subscription content_overrides (overrides endpoint)
+    """
+    import config as _cfg
+    raw = _cfg.load_config()
+    global_nd = raw.get("notification_defaults", {})
+    ep_nd = {}
+    # Only apply endpoint-level overrides for fields explicitly set in the endpoint raw config
+    ep_raw_content = endpoint._raw.get("content_defaults", {})
+
+    # Start from global defaults
+    cd = _cfg._parse_content_defaults(global_nd)
+
+    # Apply endpoint overrides (only fields present in the endpoint's content_defaults)
+    if ep_raw_content:
+        for field in ("show_venue", "show_broadcast", "show_odds",
+                      "show_series", "show_week_context", "show_key_stats"):
+            if field in ep_raw_content:
+                setattr(cd, field, ep_raw_content[field])
+
+    # Apply subscription overrides
     overrides = sub.content_overrides
     if "show_venue" in overrides:        cd.show_venue = overrides["show_venue"]
     if "show_broadcast" in overrides:    cd.show_broadcast = overrides["show_broadcast"]

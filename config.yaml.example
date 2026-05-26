@@ -13,6 +13,28 @@ game_thumbs:
   base_url: "https://game-thumbs.swvn.io"
   enabled: true
 
+# ── Notification Defaults ──────────────────────────────────────────────────────
+# Global baseline for what appears in every notification.
+# Endpoints can override individual fields; subscriptions can further override.
+
+notification_defaults:
+  show_venue: true
+  show_broadcast: true
+  show_odds: false
+  show_series: true
+  show_week_context: true
+  show_key_stats: false
+
+# ── EPG Sources ───────────────────────────────────────────────────────────────
+# Direct XMLTV URL sources — merged with Dispatcharr EPG if both are configured.
+
+epg_sources: []
+
+# Example:
+# epg_sources:
+#   - name: "My IPTV Guide"
+#     url: "http://192.168.1.x/xmltv"
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 # Each endpoint is a notification destination with its own behaviour settings.
 

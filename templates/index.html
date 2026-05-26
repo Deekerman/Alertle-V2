@@ -21,6 +21,10 @@
     <div class="card-value" id="stat-endpoints">—</div>
   </div>
   <div class="card">
+    <div class="card-label">EPG Sources</div>
+    <div class="card-value" id="stat-epg-sources">—</div>
+  </div>
+  <div class="card">
     <div class="card-label">Timezone</div>
     <div class="card-value card-value--sm" id="stat-timezone">—</div>
   </div>
@@ -51,6 +55,7 @@
         'card-value ' + (data.dispatcharr_connected ? 'text-green' : 'text-red');
       document.getElementById('stat-subscriptions').textContent = data.subscriptions;
       document.getElementById('stat-endpoints').textContent = data.endpoints;
+      document.getElementById('stat-epg-sources').textContent = data.epg_sources ?? 0;
       document.getElementById('stat-timezone').textContent = data.timezone;
       document.getElementById('stat-scan-time').textContent = data.scan_time;
     } catch(e) {

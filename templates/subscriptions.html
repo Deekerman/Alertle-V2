@@ -110,23 +110,6 @@
         </div>
       </div>
 
-      <details class="collapsible">
-        <summary>Content Overrides <span class="hint">(optional — overrides endpoint defaults)</span></summary>
-        <div class="form-grid">
-          {% for field, label in [('show_venue','Venue'), ('show_broadcast','Broadcast Networks'),
-                                  ('show_odds','Odds'), ('show_series','Series Standing'),
-                                  ('show_week_context','Week/Season Context')] %}
-          <label class="check-opt">
-            <input type="checkbox" name="override_{{ field }}" value="{{ field }}">
-            Override {{ label }}
-          </label>
-          <label class="check-opt" id="override-val-{{ field }}" style="display:none">
-            <input type="checkbox" name="val_{{ field }}"> Show {{ label }}
-          </label>
-          {% endfor %}
-        </div>
-      </details>
-
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal('add-sub-modal')">Cancel</button>
         <button type="submit" class="btn btn-primary">Add Subscription</button>
@@ -151,15 +134,6 @@
       opt.textContent = l.label;
       sel.appendChild(opt);
     });
-
-    // Wire content override toggles
-    document.querySelectorAll('input[name^="override_"]').forEach(cb => {
-      const field = cb.name.replace('override_', '');
-      cb.addEventListener('change', () => {
-        const valRow = document.getElementById('override-val-' + field);
-        valRow.style.display = cb.checked ? '' : 'none';
-      });
-    });
   }
 
   async function onLeagueChange() {
@@ -172,7 +146,6 @@
 
     const scope = document.querySelector('input[name="scope"]:checked').value;
     if (scope === 'league') {
-      // Auto-fill label for league-wide subscription
       const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
       if (leagueObj) document.getElementById('sub-label').value = 'All ' + leagueObj.label + ' Games';
     }
@@ -192,7 +165,6 @@
     const scope = document.querySelector('input[name="scope"]:checked').value;
     document.getElementById('team-row').classList.toggle('hidden', scope !== 'team');
     if (scope !== 'team') {
-      // Re-trigger label fill for league scope
       const sel = document.getElementById('sub-league');
       if (sel.value) {
         const {sport, league} = JSON.parse(sel.value);
@@ -231,19 +203,12 @@
     const endpoints = [...document.querySelectorAll('input[name="endpoints"]:checked')]
       .map(cb => cb.value);
 
-    // Build content_overrides
-    const content_overrides = {};
-    document.querySelectorAll('input[name^="override_"]:checked').forEach(cb => {
-      const field = cb.name.replace('override_', '');
-      const valCb = document.querySelector(`input[name="val_${field}"]`);
-      content_overrides[field] = valCb ? valCb.checked : false;
-    });
-
     const payload = {
       label, espn_sport: sport, espn_league: league, scope,
       espn_team_id: teamId, espn_team_name: teamName, espn_team_abbrev: teamAbbrev,
       game_thumbs_league: league,
-      content_overrides, endpoints,
+      content_overrides: {},
+      endpoints,
     };
 
     try {

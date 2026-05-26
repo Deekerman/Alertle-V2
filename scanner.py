@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 import config as cfg_module
 from dispatcharr.client import get_client as get_dispatcharr
 from epg.matcher import find_channels_for_game
+from epg.xmltv import fetch_xmltv
 from espn.client import get_games_for_subscription
 from models import GameMatch
 from scheduler import AlertScheduler
@@ -52,6 +53,19 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         log.info("Fetched %d EPG programs", len(epg_programs))
     else:
         log.warning("Dispatcharr not configured — channel matching disabled")
+
+    # Merge programs from any configured XMLTV sources
+    for source in cfg_module.get_epg_sources(raw):
+        url = source.get("url", "").strip()
+        name = source.get("name", url)
+        if not url:
+            continue
+        try:
+            xmltv_progs = await fetch_xmltv(url)
+            epg_programs.extend(xmltv_progs)
+            log.info("XMLTV source '%s': %d programs fetched", name, len(xmltv_progs))
+        except Exception as e:
+            log.error("XMLTV source '%s' failed: %s", name, e)
 
     # Track what we scheduled to report back to the UI
     scheduled_count = 0

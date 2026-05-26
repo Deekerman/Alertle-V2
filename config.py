@@ -61,6 +61,16 @@ def get_game_thumbs(raw: dict | None = None) -> dict:
     return raw.get("game_thumbs", {})
 
 
+def get_epg_sources(raw: dict | None = None) -> list[dict]:
+    raw = raw or _load_raw()
+    return raw.get("epg_sources", [])
+
+
+def get_notification_defaults(raw: dict | None = None) -> "ContentDefaults":
+    raw = raw or _load_raw()
+    return _parse_content_defaults(raw.get("notification_defaults", {}))
+
+
 def _parse_content_defaults(d: dict) -> ContentDefaults:
     return ContentDefaults(
         show_venue=d.get("show_venue", True),

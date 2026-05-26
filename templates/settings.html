@@ -7,6 +7,7 @@
 </div>
 
 <form class="form-card" id="settings-form" onsubmit="saveSettings(event)">
+
   <section class="form-section">
     <h2>General</h2>
     <div class="form-row">
@@ -26,6 +27,46 @@
   </section>
 
   <section class="form-section">
+    <h2>Notification Defaults</h2>
+    <p class="hint" style="margin-bottom:.75rem">
+      These fields appear in every alert by default. Endpoints can override individual fields if needed.
+    </p>
+    {% set nd = cfg.get('notification_defaults', {}) %}
+    <div class="check-group check-group--row">
+      <label class="check-opt">
+        <input type="checkbox" name="show_venue"
+               {% if nd.get('show_venue', True) %}checked{% endif %}>
+        Venue
+      </label>
+      <label class="check-opt">
+        <input type="checkbox" name="show_broadcast"
+               {% if nd.get('show_broadcast', True) %}checked{% endif %}>
+        Broadcast Networks
+      </label>
+      <label class="check-opt">
+        <input type="checkbox" name="show_odds"
+               {% if nd.get('show_odds', False) %}checked{% endif %}>
+        Odds
+      </label>
+      <label class="check-opt">
+        <input type="checkbox" name="show_series"
+               {% if nd.get('show_series', True) %}checked{% endif %}>
+        Series Standing
+      </label>
+      <label class="check-opt">
+        <input type="checkbox" name="show_week_context"
+               {% if nd.get('show_week_context', True) %}checked{% endif %}>
+        Week / Season Context
+      </label>
+      <label class="check-opt">
+        <input type="checkbox" name="show_key_stats"
+               {% if nd.get('show_key_stats', False) %}checked{% endif %}>
+        Key Stats
+      </label>
+    </div>
+  </section>
+
+  <section class="form-section">
     <h2>Dispatcharr</h2>
     <div class="form-row">
       <label for="dispatcharr_url">URL</label>
@@ -39,7 +80,7 @@
              value="{{ cfg.get('dispatcharr', {}).get('api_key', '') }}"
              placeholder="Your Dispatcharr API key">
     </div>
-    <div class="form-row">
+    <div class="form-row form-row--inline">
       <button type="button" class="btn btn-secondary" onclick="testDispatcharr()">Test Connection</button>
       <span id="dispatcharr-test-result" class="inline-status"></span>
     </div>
@@ -67,6 +108,34 @@
     <span id="settings-saved" class="inline-status hidden">✅ Saved</span>
   </div>
 </form>
+
+<!-- EPG Sources — managed separately from main settings form -->
+<div class="form-card" style="margin-top:2rem">
+  <section class="form-section" style="margin-bottom:0">
+    <h2>EPG Sources</h2>
+    <p class="hint" style="margin-bottom:1rem">
+      Add XMLTV URLs to use as EPG sources for channel matching.
+      These work alongside Dispatcharr — programs from all sources are merged.
+    </p>
+
+    <div id="epg-sources-list">
+      <p class="hint">Loading…</p>
+    </div>
+
+    <div class="form-row form-row--inline" style="margin-top:1rem; gap:.75rem; flex-wrap:wrap; align-items:flex-end">
+      <div style="flex:1; min-width:140px">
+        <label for="epg-new-name">Name</label>
+        <input type="text" id="epg-new-name" placeholder="e.g. My IPTV Guide">
+      </div>
+      <div style="flex:2; min-width:200px">
+        <label for="epg-new-url">XMLTV URL</label>
+        <input type="text" id="epg-new-url" placeholder="http://192.168.1.x/xmltv">
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="addEpgSource()" style="align-self:flex-end">Add</button>
+      <span id="epg-add-status" class="inline-status"></span>
+    </div>
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -90,10 +159,13 @@
 
   async function testDispatcharr() {
     const el = document.getElementById('dispatcharr-test-result');
+    const url = document.getElementById('dispatcharr_url').value.trim();
+    const key = document.getElementById('dispatcharr_api_key').value.trim();
     el.textContent = 'Testing…';
     el.className = 'inline-status';
     try {
-      const res = await apiFetch('/api/settings/test-dispatcharr');
+      const params = new URLSearchParams({ url, api_key: key });
+      const res = await apiFetch('/api/settings/test-dispatcharr?' + params);
       if (res.ok) {
         el.textContent = '✅ Connected';
         el.className = 'inline-status text-green';
@@ -106,5 +178,86 @@
       el.className = 'inline-status text-red';
     }
   }
+
+  // ── EPG Sources ──────────────────────────────────────────────────────────────
+
+  async function loadEpgSources() {
+    const container = document.getElementById('epg-sources-list');
+    try {
+      const sources = await apiFetch('/api/epg-sources');
+      if (!sources.length) {
+        container.innerHTML = '<p class="hint">No EPG sources configured.</p>';
+        return;
+      }
+      const rows = sources.map(s => `
+        <div class="epg-source-row">
+          <span class="epg-source-name"><strong>${escHtml(s.name)}</strong></span>
+          <span class="epg-source-url hint">${escHtml(s.url)}</span>
+          <div class="epg-source-actions">
+            <button class="btn btn-secondary btn-sm" onclick="testEpgSource('${escHtml(s.name)}', this)">Test</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteEpgSource('${escHtml(s.name)}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+      container.innerHTML = rows;
+    } catch(e) {
+      container.innerHTML = '<p class="text-red hint">Failed to load sources: ' + e.message + '</p>';
+    }
+  }
+
+  async function addEpgSource() {
+    const name = document.getElementById('epg-new-name').value.trim();
+    const url  = document.getElementById('epg-new-url').value.trim();
+    const status = document.getElementById('epg-add-status');
+    if (!name || !url) { status.textContent = '❌ Name and URL required'; status.className='inline-status text-red'; return; }
+    try {
+      await apiFetch('/api/epg-sources', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, url}),
+      });
+      document.getElementById('epg-new-name').value = '';
+      document.getElementById('epg-new-url').value = '';
+      status.textContent = '✅ Added';
+      status.className = 'inline-status text-green';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+      loadEpgSources();
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+      status.className = 'inline-status text-red';
+    }
+  }
+
+  async function deleteEpgSource(name) {
+    if (!confirm(`Delete EPG source "${name}"?`)) return;
+    await apiFetch('/api/epg-sources/' + encodeURIComponent(name), { method: 'DELETE' });
+    loadEpgSources();
+  }
+
+  async function testEpgSource(name, btn) {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const res = await apiFetch('/api/epg-sources/test/' + encodeURIComponent(name));
+      if (res.ok) {
+        btn.textContent = '✅ ' + res.count + ' programs';
+        btn.className = 'btn btn-secondary btn-sm text-green';
+      } else {
+        btn.textContent = '❌ Failed';
+        btn.title = res.error || '';
+        btn.className = 'btn btn-secondary btn-sm text-red';
+      }
+    } catch(e) {
+      btn.textContent = '❌ Error';
+      btn.title = e.message;
+    }
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.className = 'btn btn-secondary btn-sm'; btn.title = ''; }, 4000);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadEpgSources();
 </script>
 {% endblock %}

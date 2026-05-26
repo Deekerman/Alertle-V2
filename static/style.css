@@ -234,6 +234,7 @@ a:hover { text-decoration: underline; }
 }
 
 .form-row--check { flex-direction: row; align-items: center; gap: .5rem; }
+.form-row--inline { flex-direction: row; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
 .form-row--check label { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1rem; }
@@ -424,8 +425,24 @@ form { padding: 1.5rem; }
 .text-red   { color: var(--red);   }
 
 .creds { margin-bottom: .5rem; }
+.row-actions { display: flex; gap: .4rem; }
 
 .hidden { display: none !important; }
+
+/* ── EPG source rows ─────────────────────────────────────────────────────────── */
+
+.epg-source-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.epg-source-row:last-child { border-bottom: none; }
+.epg-source-name { min-width: 120px; }
+.epg-source-url  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.epg-source-actions { display: flex; gap: .5rem; flex-shrink: 0; }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 
