@@ -7,9 +7,12 @@ Lines where every {var} resolves to an empty string are auto-skipped.
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+log = logging.getLogger(__name__)
 
 from models import Endpoint, ESPNGame, GameMatch, Subscription
 from game_thumbs.builder import build_url, build_league_url
