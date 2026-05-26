@@ -49,9 +49,12 @@ EVENT_EXCLUDE_TERMS: dict[tuple[str, str], list[str]] = {
         "best of", "on the range", "the drop", "the return",
         # LPGA programs contain "lpga tour golf" which includes "pga tour" as a substring
         "lpga",
+        # Early featured-groups coverage airs 4+ hours before main broadcast;
+        # exclude so find_event_earliest_start returns the main round start time.
+        "featured groups", "featured group",
     ],
     ("golf", "lpga"): ["highlights", "best of", "lpga tour golf academy"],
-    ("golf", "eur"):  ["highlights", "best of"],
+    ("golf", "eur"):  ["highlights", "best of", "featured groups", "featured group"],
     ("racing", "f1"): ["highlights", "best of", "classic"],
     ("mma",  "ufc"):  ["highlights", "best of", "embedded"],
     ("tennis", "atp"): ["highlights", "best of"],
