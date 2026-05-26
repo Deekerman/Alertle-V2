@@ -147,24 +147,33 @@ class DispatcharrClient:
     # ── Output profiles ───────────────────────────────────────────────────────
 
     async def get_output_profiles(self) -> list[dict]:
-        url = f"{self.base_url}/api/core/outputprofiles/"
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                r = await client.get(url, headers=self.headers)
-                r.raise_for_status()
-                body = r.content.strip()
-                if not body:
-                    log.warning("Output profiles endpoint returned empty body")
-                    return []
-                data = r.json()
-            items = data if isinstance(data, list) else data.get("results", [])
-            return [
-                {"id": p.get("id"), "name": p.get("name", ""), "is_active": p.get("is_active", False)}
-                for p in items if p.get("name")
-            ]
-        except Exception as e:
-            log.error("Failed to fetch output profiles: %s", e)
-            return []
+        """
+        Try to list Dispatcharr channel profiles (used in /output/epg/{name}/).
+        Falls back gracefully — endpoint may not exist or return non-JSON.
+        """
+        for path in ("/api/channels/channel_profiles/", "/api/core/outputprofiles/"):
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    r = await client.get(f"{self.base_url}{path}", headers=self.headers)
+                    if r.status_code not in (200, 201):
+                        continue
+                    if not r.content.strip():
+                        continue
+                    try:
+                        data = r.json()
+                    except ValueError:
+                        log.debug("Output profiles: %s returned non-JSON (%d bytes)", path, len(r.content))
+                        continue
+                items = data if isinstance(data, list) else (data.get("results", []) if isinstance(data, dict) else [])
+                profiles = [
+                    {"id": p.get("id"), "name": p.get("name", ""), "is_active": p.get("is_active", False)}
+                    for p in items if p.get("name")
+                ]
+                if profiles:
+                    return profiles
+            except Exception as e:
+                log.debug("Output profiles: %s failed: %s", path, e)
+        return []
 
     # ── Health check ──────────────────────────────────────────────────────────
 
