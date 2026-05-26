@@ -208,8 +208,15 @@ async def save_subscription(request: Request):
 @app.delete("/api/subscriptions/{label}")
 async def delete_subscription(label: str):
     raw = cfg_module.load_config()
+    deleted = [s for s in raw.get("subscriptions", []) if s.get("label") == label]
     raw["subscriptions"] = [s for s in raw.get("subscriptions", []) if s.get("label") != label]
     cfg_module.save_config(raw)
+    if scheduler:
+        for s in deleted:
+            if s.get("scope") == "event_series":
+                scheduler.cleanup_alerts_for_sport_league(
+                    s.get("espn_sport", ""), s.get("espn_league", "")
+                )
     return JSONResponse({"ok": True})
 
 

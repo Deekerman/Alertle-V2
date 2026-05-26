@@ -151,8 +151,15 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     # ── Event Series ──────────────────────────────────────────────────────────
     tz_name = cfg_module.get_timezone(raw)
 
-    # Remove stale event series alerts before creating new ones
-    scheduler.cleanup_stale_event_series_alerts()
+    # Prune event series alerts for subscriptions that no longer exist,
+    # then wipe and rebuild alerts for active ones so the DB stays fresh.
+    active_event_subs = {
+        (s.espn_sport, s.espn_league)
+        for s in subs if s.scope == "event_series"
+    }
+    scheduler.prune_orphaned_event_series_alerts(active_event_subs)
+    for sport, league in active_event_subs:
+        scheduler.cleanup_alerts_for_sport_league(sport, league)
 
     for sub in subs:
         if sub.scope != "event_series":

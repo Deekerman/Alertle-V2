@@ -205,7 +205,13 @@ class AlertScheduler:
         then fires scheduled tasks as their time comes.
         """
         log.info("Scheduler starting — replaying pending alerts from DB")
-        self.cleanup_stale_event_series_alerts()
+        raw = cfg_module.load_config()
+        active = {
+            (s.espn_sport, s.espn_league)
+            for s in cfg_module.get_subscriptions(raw)
+            if s.scope == "event_series"
+        }
+        self.prune_orphaned_event_series_alerts(active)
         pending = _get_pending(self._conn)
         log.info("%d pending alerts found", len(pending))
 
@@ -342,17 +348,58 @@ class AlertScheduler:
             self._arm_task(alert)
 
     def cleanup_stale_event_series_alerts(self) -> None:
-        """Delete unsent event-series and standings alerts whose fire_at has passed."""
-        now_str = datetime.now(timezone.utc).isoformat()
+        """Delete ALL unsent event-series and standings alerts (full reset)."""
         cur = self._conn.execute(
             "DELETE FROM scheduled_alerts WHERE sent=0 "
-            "AND (game_id LIKE 'event:%' OR id LIKE 'standings:%') "
-            "AND fire_at <= ?",
-            (now_str,)
+            "AND (game_id LIKE 'event:%' OR id LIKE 'standings:%')"
         )
         self._conn.commit()
         if cur.rowcount:
-            log.info("Cleaned up %d stale event series alerts", cur.rowcount)
+            log.info("Cleaned up %d event series alerts", cur.rowcount)
+
+    def cleanup_alerts_for_sport_league(self, sport: str, league: str) -> None:
+        """Delete all unsent alerts for a specific event-series sport/league."""
+        pattern = f"event:{sport}:{league}:%"
+        standings_pattern = f"standings:{sport}:{league}:%"
+        cur = self._conn.execute(
+            "DELETE FROM scheduled_alerts WHERE sent=0 "
+            "AND (game_id LIKE ? OR id LIKE ?)",
+            (pattern, standings_pattern)
+        )
+        self._conn.commit()
+        if cur.rowcount:
+            log.info("Removed %d alerts for %s/%s", cur.rowcount, sport, league)
+
+    def prune_orphaned_event_series_alerts(self, active_sport_leagues: set[tuple[str, str]]) -> None:
+        """Remove unsent event series alerts for sport/league combos not in active subscriptions."""
+        rows = self._conn.execute(
+            "SELECT DISTINCT game_id FROM scheduled_alerts "
+            "WHERE sent=0 AND game_id LIKE 'event:%'"
+        ).fetchall()
+        for (game_id,) in rows:
+            parts = game_id.split(":")
+            if len(parts) < 3:
+                continue
+            sport, league = parts[1], parts[2]
+            if (sport, league) not in active_sport_leagues:
+                self.cleanup_alerts_for_sport_league(sport, league)
+
+        # Also prune orphaned standings alerts
+        rows = self._conn.execute(
+            "SELECT DISTINCT id FROM scheduled_alerts "
+            "WHERE sent=0 AND id LIKE 'standings:%'"
+        ).fetchall()
+        for (alert_id,) in rows:
+            parts = alert_id.split(":")
+            if len(parts) < 3:
+                continue
+            sport, league = parts[1], parts[2]
+            if (sport, league) not in active_sport_leagues:
+                self._conn.execute(
+                    "DELETE FROM scheduled_alerts WHERE sent=0 AND id LIKE ?",
+                    (f"standings:{sport}:{league}:%",)
+                )
+        self._conn.commit()
 
     def list_pending(self) -> list[dict]:
         """Return serializable pending alerts sorted by fire time — used by the dashboard."""
