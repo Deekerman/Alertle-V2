@@ -54,6 +54,7 @@ class ESPNGame:
 class EPGChannel:
     id: str
     name: str
+    channel_number: str = ""
 
 
 @dataclass
@@ -65,6 +66,7 @@ class EPGProgram:
     description: str
     start: datetime     # UTC
     stop: datetime      # UTC
+    channel_number: str = ""
 
 
 # ── Match — ESPN game + EPG channels it was found on ─────────────────────────

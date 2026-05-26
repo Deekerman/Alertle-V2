@@ -51,6 +51,16 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         log.info("Fetching EPG programs from Dispatcharr...")
         epg_programs = await dispatcharr.get_programs(start=now, stop=scan_end)
         log.info("Fetched %d EPG programs", len(epg_programs))
+        # Enrich programs with channel numbers from the channels endpoint
+        try:
+            channels = await dispatcharr.get_channels()
+            ch_num_map = {ch.id: ch.channel_number for ch in channels if ch.channel_number}
+            if ch_num_map:
+                for prog in epg_programs:
+                    prog.channel_number = ch_num_map.get(prog.channel_id, "")
+                log.info("Enriched programs with channel numbers (%d channels with numbers)", len(ch_num_map))
+        except Exception as e:
+            log.warning("Could not fetch channel numbers: %s", e)
     else:
         log.warning("Dispatcharr not configured — channel matching disabled")
 

@@ -38,7 +38,7 @@ def _build_single_embed(lines: dict, sport: str) -> dict:
     fields = []
 
     if lines["channels"]:
-        fields.append({"name": "📺 Watch on", "value": lines["channels"], "inline": True})
+        fields.append({"name": "📺 Watch on", "value": lines["channels"], "inline": False})
     if lines["venue"]:
         fields.append({"name": "📍 Venue", "value": lines["venue"], "inline": True})
     if lines["context"]:

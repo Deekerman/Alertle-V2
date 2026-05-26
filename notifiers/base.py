@@ -89,7 +89,7 @@ def build_game_lines(
 
     title = f"{game.away_team.name} vs {game.home_team.name}"
     time_str = format_game_time(game.start_time, tz_name)
-    channels_str = ", ".join(match.channels) if match.channels else "Channel TBD"
+    channels_str = "\n".join(match.channels) if match.channels else "Channel TBD"
 
     venue = ""
     if cd.show_venue and game.venue:

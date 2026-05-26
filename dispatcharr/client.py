@@ -44,6 +44,10 @@ class DispatcharrClient:
                 channels.append(EPGChannel(
                     id=str(item.get("id", "")),
                     name=item.get("name", item.get("channel_name", "")),
+                    channel_number=str(
+                        item.get("number") or item.get("channel_number") or
+                        item.get("lcn") or item.get("stream_profile_number") or ""
+                    ).strip(),
                 ))
             return channels
         except Exception as e:
