@@ -225,16 +225,37 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                     continue
 
                 # Derive the display name from EPG program data.
-                # Subtitle is often the specific tournament name (e.g. "Charles Schwab Challenge").
-                # Avoid using generic round indicators ("Round 1", "Day 2") as the event name.
-                # Title may be generic ("PGA Tour Golf") or carry the full event name
-                # ("Live: Austrian Open, DP World Tour Golf") — strip broadcast prefixes.
+                #
+                # Strategy:
+                #   1. Prefer the title when it's "specific" — i.e. it contains content
+                #      beyond the bare league/tour phrase (e.g. "Austrian Open, DP World
+                #      Tour Golf" is specific; "DP World Tour Golf" alone is generic).
+                #      Strip any leading "Live:" broadcast prefix first.
+                #   2. Fall back to subtitle when the title is generic AND the subtitle
+                #      looks like an actual event name (not a round/day indicator).
+                #   3. Fall back to the generic title, then ESPN event_name, then sub.label.
+                #
+                # This prevents a mislabelled subtitle (e.g. a PGA program subtitle
+                # appearing on a DP World Tour channel) from overriding a correct title.
+                _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
                 _sub = epg_subtitle.strip()
                 _is_round = bool(re.match(
-                    r'^(round|day|session|hole|week)\s*\d+$', _sub, re.IGNORECASE
+                    r'^(round|day|session|hole|week)\s*(\d+|one|two|three|four|final)$',
+                    _sub, re.IGNORECASE
                 ))
-                _title_clean = re.sub(r'^Live:\s*', '', epg_title, flags=re.IGNORECASE).strip()
-                display_name = (_sub if _sub and not _is_round else _title_clean) or event_name or sub.label
+                # Title is "specific" if it contains more than just the bare league term
+                _title_is_generic = not _title_clean or any(
+                    _title_clean.lower() == bt.lower() for bt in base_terms
+                )
+                if not _title_is_generic:
+                    display_name = _title_clean
+                elif _sub and not _is_round:
+                    display_name = _sub
+                else:
+                    display_name = _title_clean
+                display_name = display_name or event_name or sub.label
+                log.debug("[%s] EPG match — title=%r subtitle=%r → display=%r",
+                          sub.label, epg_title, epg_subtitle, display_name)
 
                 earliest = find_event_earliest_start(
                     event_terms, epg_programs, check_date, exclude_terms=exclude_terms
