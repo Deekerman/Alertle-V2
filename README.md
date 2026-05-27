@@ -26,21 +26,36 @@ If it works, great. If something breaks, that's also the vibes. PRs are welcome.
 
 ## Quick Start
 
+```yaml
+services:
+  alertle-v2:
+    image: ghcr.io/deekerman/alertle-v2:latest
+    container_name: alertle-v2
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      TZ: America/Toronto
+      ALERTLE_CONFIG: /config/config.yaml
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./alertle-v2/config.yaml:/config/config.yaml
+      - alertle_data:/app/data
+
+volumes:
+  alertle_data:
+```
+
 ```bash
-# Pull and run with Docker Compose
-curl -o docker-compose.yml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/docker-compose.yml
-curl -o config.yaml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/config.yaml.example
-# Edit config.yaml with your settings, then:
+# Create the config directory and grab the example config
+mkdir -p alertle-v2
+curl -o alertle-v2/config.yaml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/config.yaml.example
+
+# Edit config.yaml, then:
 docker compose up -d
 ```
 
-Or pull the image directly:
-
-```bash
-docker pull ghcr.io/deekerman/alertle-v2:latest
-```
-
-The web UI will be available at `http://localhost:8888`.
+The web UI will be available at `http://localhost:8888`. The first-start wizard will walk you through the rest.
 
 ---
 
@@ -98,21 +113,14 @@ sudo journalctl -u alertle-v2 -f
 ### Docker
 
 ```bash
-git clone https://github.com/Deekerman/Alertle-V2.git
-cd Alertle-V2
-cp config.yaml.example config.yaml
-# Edit config.yaml with your settings
+mkdir -p alertle-v2
+curl -o alertle-v2/config.yaml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/config.yaml.example
+curl -o docker-compose.yml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/docker-compose.yml
+# Edit alertle-v2/config.yaml, then:
 docker compose up -d
 ```
 
 The web UI will be available at `http://localhost:8888`.
-
-```yaml
-# docker-compose.yml mounts
-volumes:
-  - ./config.yaml:/config/config.yaml
-  - alertle_data:/data
-```
 
 ## Configuration
 
