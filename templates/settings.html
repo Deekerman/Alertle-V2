@@ -37,44 +37,44 @@
       <label for="notification_template">Default Template</label>
       <textarea id="notification_template" name="notification_template" rows="7"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
-                placeholder="{time}&#10;📺 {channels}&#10;📍 {venue}&#10;{context}&#10;{odds}&#10;{score}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
+                placeholder="{description}&#10;{time}&#10;{venue}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
       <span class="hint">
         Available variables: <code>{time}</code> <code>{channels}</code> <code>{broadcast}</code>
         <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{score}</code>
-        <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
+        <code>{description}</code> <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
         <code>{league}</code> <code>{sport}</code>
       </span>
-      <span class="hint">Leave empty to use default: time, channels, venue, context, odds, score</span>
+      <span class="hint">Leave empty to use default: description, time, venue, channels</span>
     </div>
     <div class="form-row" style="margin-top:1rem">
       <label for="game_summary_template">Game Summary Template</label>
       <textarea id="game_summary_template" name="game_summary_template" rows="5"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
-                placeholder="🏆 {score}&#10;{time}&#10;📺 {channels}&#10;{description}">{{ cfg.get('notification_defaults', {}).get('game_summary_template', '') }}</textarea>
+                placeholder="{time}&#10;{score}">{{ cfg.get('notification_defaults', {}).get('game_summary_template', '') }}</textarea>
       <span class="hint">
-        Used for Final Score notifications. Same variables as above, plus <code>{description}</code> (EPG program description).
-        Leave empty to use default: score, time, channels, description.
+        Used for Final Score notifications. Same variables as above, plus <code>{score}</code> for the final result.
+        Leave empty to use default: time, score.
       </span>
     </div>
     <div class="form-row" style="margin-top:1rem">
       <label for="digest_game_template">Digest Template — Team Sports</label>
-      <textarea id="digest_game_template" name="digest_game_template" rows="4"
+      <textarea id="digest_game_template" name="digest_game_template" rows="6"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
-                placeholder="{context}&#10;{time}&#10;📺 {channels}">{{ cfg.get('notification_defaults', {}).get('digest_game_template', '') }}</textarea>
+                placeholder="{away} at {home}&#10;Game Start:&#10;{time}&#10;{context}&#10;Times &amp; Channels&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('digest_game_template', '') }}</textarea>
       <span class="hint">
         Formats each game in the digest for team sports (NHL, NBA, MLB, etc.).
-        Leave empty to use default: context, time, 📺 channels.
+        Leave empty to use default: matchup, game start time, context, channels.
       </span>
     </div>
     <div class="form-row" style="margin-top:1rem">
       <label for="digest_event_template">Digest Template — Events (Golf, F1…)</label>
-      <textarea id="digest_event_template" name="digest_event_template" rows="4"
+      <textarea id="digest_event_template" name="digest_event_template" rows="5"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
-                placeholder="{context}&#10;{time}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('digest_event_template', '') }}</textarea>
+                placeholder="{home}&#10;Event Start:&#10;{time}&#10;Times &amp; Channels:&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('digest_event_template', '') }}</textarea>
       <span class="hint">
         Formats each event in the digest for event series (Golf, F1, Tennis, etc.).
         The <code>{channels}</code> variable includes the full broadcast schedule with time slots.
-        Leave empty to use default: context, time, channels.
+        Leave empty to use default: event name, start time, channels.
       </span>
     </div>
   </section>
