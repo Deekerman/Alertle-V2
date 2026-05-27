@@ -218,6 +218,27 @@
         </span>
       </div>
 
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-digest-team-template">
+          Digest Template — Team Sports
+          <span class="hint">(optional — used for team game lines in the morning digest)</span>
+        </label>
+        <textarea id="ep-digest-team-template" rows="4"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use the global Digest Game Template from Settings&#10;&#10;Example:&#10;{context}&#10;{time}&#10;📺 {channels}"></textarea>
+        <span class="hint">Same variables as Notification Template. Leave empty to use Settings default.</span>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-digest-event-template">
+          Digest Template — Events (Golf, F1…)
+          <span class="hint">(optional — used for event series lines in the morning digest)</span>
+        </label>
+        <textarea id="ep-digest-event-template" rows="4"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use the global Digest Event Template from Settings&#10;&#10;Example:&#10;{context}&#10;📺 {channels}"></textarea>
+        <span class="hint">Same variables as Notification Template. Leave empty to use Settings default.</span>
+      </div>
+
       <hr class="divider">
 
       <!-- Game-Thumbs -->
@@ -268,6 +289,12 @@
         <label class="check-opt" style="margin-top:.5rem">
           <input type="checkbox" id="gt-fallback" checked> Fallback to league logo if team not found
         </label>
+        <p class="hint" style="margin-top:.6rem">
+          ⚠ Game-Thumbs images are fetched by the notification service (Telegram, Discord, etc.),
+          not by Alertle. The <strong>game_thumbs base_url</strong> in Settings must be a
+          <strong>publicly accessible URL</strong> — a local IP address (e.g. <code>192.168.x.x</code>)
+          will not work.
+        </p>
       </div>
 
       <div class="modal-actions">
@@ -320,6 +347,8 @@
     // Clear notification templates
     document.getElementById('ep-notification-template').value = '';
     document.getElementById('ep-game-summary-template').value = '';
+    document.getElementById('ep-digest-team-template').value = '';
+    document.getElementById('ep-digest-event-template').value = '';
   }
 
   function editEndpoint(data) {
@@ -380,6 +409,8 @@
     // Notification templates
     document.getElementById('ep-notification-template').value = data.notification_template || '';
     document.getElementById('ep-game-summary-template').value = data.game_summary_template || '';
+    document.getElementById('ep-digest-team-template').value = data.digest_game_template || '';
+    document.getElementById('ep-digest-event-template').value = data.digest_event_template || '';
 
     openModal('ep-modal');
   }
@@ -400,6 +431,8 @@
 
     const notification_template = document.getElementById('ep-notification-template').value.trim();
     const game_summary_template = document.getElementById('ep-game-summary-template').value.trim();
+    const digest_game_template = document.getElementById('ep-digest-team-template').value.trim();
+    const digest_event_template = document.getElementById('ep-digest-event-template').value.trim();
 
     const payload = {
       id: document.getElementById('ep-id').value.trim(),
@@ -414,6 +447,8 @@
       auto_record: false,
       notification_template,
       game_summary_template,
+      digest_game_template,
+      digest_event_template,
       game_thumbs: {
         type: document.getElementById('gt-type').value,
         style: parseInt(document.getElementById('gt-style').value),
