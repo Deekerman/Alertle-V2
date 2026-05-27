@@ -36,6 +36,10 @@ DEFAULT_DIGEST_GAME_TEMPLATE = """{context}
 {time}
 📺 {channels}"""
 
+DEFAULT_DIGEST_EVENT_TEMPLATE = """{context}
+{time}
+{channels}"""
+
 
 def _get_template(endpoint: Endpoint, mode: str = "") -> str:
     """Return the active template for the given mode.
@@ -68,6 +72,19 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
             return d_t
         log.debug("Template source: built-in DEFAULT_DIGEST_GAME_TEMPLATE for %s", endpoint.id)
         return DEFAULT_DIGEST_GAME_TEMPLATE
+    elif mode == "digest_event":
+        ep_t = endpoint._raw.get("digest_event_template", "")
+        if ep_t:
+            log.debug("Template source: endpoint override (digest_event) for %s", endpoint.id)
+            return ep_t
+        import config as _cfg
+        nd = _cfg.load_config().get("notification_defaults", {})
+        d_t = nd.get("digest_event_template", "")
+        if d_t:
+            log.debug("Template source: global digest_event_template for %s", endpoint.id)
+            return d_t
+        log.debug("Template source: built-in DEFAULT_DIGEST_EVENT_TEMPLATE for %s", endpoint.id)
+        return DEFAULT_DIGEST_EVENT_TEMPLATE
     else:
         ep_t = endpoint._raw.get("notification_template", "")
         if ep_t:
@@ -207,7 +224,8 @@ def build_game_lines(
     except Exception:
         pass
 
-    template = _get_template(endpoint, mode)
+    template_mode = "digest_event" if (mode == "digest" and is_event) else mode
+    template = _get_template(endpoint, template_mode)
     vars_map = {
         "time":         time_str,
         "channels":     channels_str,

@@ -57,12 +57,23 @@
       </span>
     </div>
     <div class="form-row" style="margin-top:1rem">
-      <label for="digest_game_template">Digest Game Template</label>
+      <label for="digest_game_template">Digest Template — Team Sports</label>
       <textarea id="digest_game_template" name="digest_game_template" rows="4"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
                 placeholder="{context}&#10;{time}&#10;📺 {channels}">{{ cfg.get('notification_defaults', {}).get('digest_game_template', '') }}</textarea>
       <span class="hint">
-        Formats each individual game within the league-grouped morning digest. Same variables as Default Template.
+        Formats each game in the digest for team sports (NHL, NBA, MLB, etc.).
+        Leave empty to use default: context, time, 📺 channels.
+      </span>
+    </div>
+    <div class="form-row" style="margin-top:1rem">
+      <label for="digest_event_template">Digest Template — Events (Golf, F1…)</label>
+      <textarea id="digest_event_template" name="digest_event_template" rows="4"
+                style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                placeholder="{context}&#10;{time}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('digest_event_template', '') }}</textarea>
+      <span class="hint">
+        Formats each event in the digest for event series (Golf, F1, Tennis, etc.).
+        The <code>{channels}</code> variable includes the full broadcast schedule with time slots.
         Leave empty to use default: context, time, channels.
       </span>
     </div>
