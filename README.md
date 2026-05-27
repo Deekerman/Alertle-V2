@@ -4,7 +4,23 @@
 
 <h1 align="center">Alertle-V2</h1>
 
-<p align="center">Sports alert notifications powered by ESPN, EPG, and your preferred push service.</p>
+<p align="center"><em>He's slow. Your alerts aren't.</em></p>
+
+<p align="center">A self-hosted EPG monitoring and alert system. Built for sports fans, but flexible enough to notify you about any programming you care about.</p>
+
+---
+
+## Meet the Alertle Turtle 🐢
+
+The Alertle Turtle is our mascot, our spirit animal, and our greatest irony. He is notoriously slow. He does not rush for anyone. And yet somehow, he always makes sure your game alerts arrive on time.
+
+Don't miss a game. The Alertle Turtle's got you.
+
+## ⚡ Vibe Coded
+
+This entire project was built through conversation with Claude AI — no code was written by hand. No documentation was read. No Stack Overflow tabs were opened. Just vibes, prompts, and one very good turtle idea.
+
+If it works, great. If something breaks, that's also the vibes. PRs are welcome. So is asking an AI about it.
 
 ---
 
@@ -39,6 +55,8 @@ The web UI will be available at `http://localhost:8888`.
 - Fully configurable notification templates with per-endpoint overrides
 - 7-day lookahead scan with configurable daily scan time
 - Web UI for managing subscriptions, endpoints, settings, and viewing upcoming alerts
+- First-start setup wizard so you're not staring at a blank config
+- Backup and restore — including import from V1
 
 ## How It Works
 
