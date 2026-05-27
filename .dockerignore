@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+config.yaml
+alertle_state.db
+alertle.log*
+*.bak
+*.md

@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
   alertle-v2:
-    image: alertle-v2:latest
-    build: .
+    image: ghcr.io/deekerman/alertle-v2:latest
+    build: .          # optional: remove this line to always pull from GHCR
     container_name: alertle-v2
     ports:
       - "8888:8888"

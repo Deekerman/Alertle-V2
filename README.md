@@ -8,6 +8,26 @@
 
 ---
 
+## Quick Start
+
+```bash
+# Pull and run with Docker Compose
+curl -o docker-compose.yml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/docker-compose.yml
+curl -o config.yaml https://raw.githubusercontent.com/Deekerman/Alertle-V2/main/config.yaml.example
+# Edit config.yaml with your settings, then:
+docker compose up -d
+```
+
+Or pull the image directly:
+
+```bash
+docker pull ghcr.io/deekerman/alertle-v2:latest
+```
+
+The web UI will be available at `http://localhost:8888`.
+
+---
+
 ## Features
 
 - Pulls live game schedules from ESPN for 20+ leagues across 7 sports
