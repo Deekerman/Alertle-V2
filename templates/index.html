@@ -71,8 +71,7 @@
 
   let _tz = 'UTC';
 
-  loadStatus();
-  loadAlerts();
+  loadStatus().then(() => loadAlerts());
   loadDigestEndpoints();
 
   async function loadStatus() {

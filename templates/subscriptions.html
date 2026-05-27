@@ -63,13 +63,6 @@
     </div>
     <form id="sub-form" onsubmit="saveSub(event)">
 
-      <div class="form-row">
-        <label for="sub-league">League</label>
-        <select id="sub-league" required onchange="onLeagueChange()">
-          <option value="">Select a league…</option>
-        </select>
-      </div>
-
       <!-- Shown for team sports only -->
       <div id="scope-row" class="form-row">
         <label>Scope</label>
@@ -83,6 +76,13 @@
             Single Team
           </label>
         </div>
+      </div>
+
+      <div class="form-row">
+        <label for="sub-league">League</label>
+        <select id="sub-league" required onchange="onLeagueChange()">
+          <option value="">Select a league…</option>
+        </select>
       </div>
 
       <div class="form-row hidden" id="team-row">
