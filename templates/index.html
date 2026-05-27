@@ -58,6 +58,162 @@
   </div>
   <div id="alerts-container"><span class="text-dim">Loading…</span></div>
 </div>
+
+<!-- ── First-start wizard ─────────────────────────────────────────────── -->
+<div class="wizard-overlay hidden" id="wizard-overlay">
+  <div class="wizard">
+    <div class="wizard-header">
+      <img src="/static/logo.png" alt="Alertle">
+      <div class="wizard-progress">
+        <div class="wizard-dot active" id="wdot-0"></div>
+        <div class="wizard-dot" id="wdot-1"></div>
+        <div class="wizard-dot" id="wdot-2"></div>
+        <div class="wizard-dot" id="wdot-3"></div>
+        <div class="wizard-dot" id="wdot-4"></div>
+      </div>
+    </div>
+
+    <!-- Step 0: Welcome -->
+    <div class="wizard-body" id="wstep-0">
+      <h2>Welcome to Alertle</h2>
+      <p class="hint">Let's get you set up in a few quick steps. Here's what each section does:</p>
+      <div class="wizard-tour">
+        <div class="wizard-tour-card">
+          <h4>📊 Dashboard</h4>
+          <p>See connection status, run a manual scan, and view all upcoming scheduled alerts.</p>
+        </div>
+        <div class="wizard-tour-card">
+          <h4>🔔 Subscriptions</h4>
+          <p>Choose which teams, leagues, or events you want to follow — from the NHL to Formula 1.</p>
+        </div>
+        <div class="wizard-tour-card">
+          <h4>📡 Endpoints</h4>
+          <p>Configure where notifications go: Telegram, Discord, Pushover, or ntfy.</p>
+        </div>
+        <div class="wizard-tour-card">
+          <h4>⚙️ Settings</h4>
+          <p>Set your timezone, daily scan time, and connect Dispatcharr for channel matching.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 1: Settings -->
+    <div class="wizard-body hidden" id="wstep-1">
+      <h2>Basic Settings</h2>
+      <p class="hint" style="margin-bottom:1.25rem">Set your timezone and optionally connect Dispatcharr so Alertle knows which channel to tune to.</p>
+      <div class="form-row">
+        <label for="w-timezone">Timezone</label>
+        <input type="text" id="w-timezone" placeholder="e.g. America/Toronto">
+        <span class="hint">Used for alert times and the morning digest.</span>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="w-dispatcharr-url">Dispatcharr URL</label>
+        <input type="text" id="w-dispatcharr-url" placeholder="http://192.168.1.x:9191">
+      </div>
+      <div class="form-row">
+        <label for="w-dispatcharr-key">Dispatcharr API Key</label>
+        <input type="password" id="w-dispatcharr-key" placeholder="your-api-key">
+      </div>
+      <div style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem">
+        <button class="btn btn-secondary btn-sm" onclick="wizardTestDispatcharr()">Test Connection</button>
+        <span id="w-dispatcharr-status" style="font-size:.82rem"></span>
+      </div>
+      <p class="hint" style="margin-top:1rem">Don't have Dispatcharr? Skip this and add XMLTV sources later in Settings.</p>
+    </div>
+
+    <!-- Step 2: Add Endpoint -->
+    <div class="wizard-body hidden" id="wstep-2">
+      <h2>Add a Notification Endpoint</h2>
+      <p class="hint" style="margin-bottom:1.25rem">Where should Alertle send your alerts?</p>
+      <div class="form-row">
+        <label for="w-ep-id">Name</label>
+        <input type="text" id="w-ep-id" placeholder="e.g. my-telegram">
+      </div>
+      <div class="form-row">
+        <label for="w-ep-type">Type</label>
+        <select id="w-ep-type" onchange="wizardEndpointTypeChange()">
+          <option value="">Select…</option>
+          <option value="telegram">Telegram</option>
+          <option value="discord">Discord</option>
+          <option value="pushover">Pushover</option>
+          <option value="ntfy">ntfy</option>
+        </select>
+      </div>
+      <div id="w-creds-telegram" class="hidden">
+        <div class="form-row"><label>Bot Token</label><input type="password" id="w-telegram-token" placeholder="123456:ABC..."></div>
+        <div class="form-row"><label>Chat ID</label><input type="text" id="w-telegram-chat" placeholder="-100123456789"></div>
+      </div>
+      <div id="w-creds-discord" class="hidden">
+        <div class="form-row"><label>Webhook URL</label><input type="password" id="w-discord-webhook" placeholder="https://discord.com/api/webhooks/..."></div>
+      </div>
+      <div id="w-creds-pushover" class="hidden">
+        <div class="form-row"><label>App Token</label><input type="password" id="w-pushover-token"></div>
+        <div class="form-row"><label>User Key</label><input type="password" id="w-pushover-user"></div>
+      </div>
+      <div id="w-creds-ntfy" class="hidden">
+        <div class="form-row"><label>Server URL</label><input type="text" id="w-ntfy-url" placeholder="https://ntfy.sh"></div>
+        <div class="form-row"><label>Topic</label><input type="text" id="w-ntfy-topic"></div>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label>Alert Modes</label>
+        <div class="check-group">
+          <label class="check-opt"><input type="checkbox" id="w-mode-lead" checked> Lead-time reminder (30 min before)</label>
+          <label class="check-opt"><input type="checkbox" id="w-mode-start"> Game start</label>
+          <label class="check-opt"><input type="checkbox" id="w-mode-summary" checked> Final score</label>
+          <label class="check-opt"><input type="checkbox" id="w-mode-digest"> Morning digest</label>
+        </div>
+      </div>
+      <span id="w-ep-error" class="hint" style="color:var(--red)"></span>
+    </div>
+
+    <!-- Step 3: Add Subscription -->
+    <div class="wizard-body hidden" id="wstep-3">
+      <h2>Add a Subscription</h2>
+      <p class="hint" style="margin-bottom:1.25rem">Which sport or team do you want to follow?</p>
+      <div class="form-row">
+        <label>Scope</label>
+        <div class="toggle-group">
+          <label class="toggle-opt"><input type="radio" name="w-scope" value="league" checked onchange="wizardScopeChange()"> Whole League</label>
+          <label class="toggle-opt"><input type="radio" name="w-scope" value="team" onchange="wizardScopeChange()"> Single Team</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="w-league">League</label>
+        <select id="w-league" onchange="wizardLeagueChange()">
+          <option value="">Select a league…</option>
+        </select>
+      </div>
+      <div class="form-row hidden" id="w-team-row">
+        <label for="w-team">Team</label>
+        <select id="w-team"></select>
+      </div>
+      <div class="form-row">
+        <label for="w-sub-label">Label</label>
+        <input type="text" id="w-sub-label" placeholder="e.g. Toronto Maple Leafs">
+      </div>
+      <span id="w-sub-error" class="hint" style="color:var(--red)"></span>
+    </div>
+
+    <!-- Step 4: Done -->
+    <div class="wizard-body hidden" id="wstep-4">
+      <div style="text-align:center;padding:1rem 0">
+        <div style="font-size:3rem;margin-bottom:.75rem">🐢</div>
+        <h2 style="margin-bottom:.5rem">You're all set!</h2>
+        <p class="hint" style="margin-bottom:1.5rem">Run your first scan to pull games from ESPN and schedule your alerts.</p>
+        <button class="btn btn-primary" onclick="wizardRunScan()">Run Scan Now</button>
+        <div id="w-scan-result" style="margin-top:.75rem;font-size:.85rem"></div>
+      </div>
+    </div>
+
+    <div class="wizard-footer">
+      <button class="btn btn-secondary btn-sm" onclick="dismissWizard()">Skip Setup</button>
+      <div class="wizard-footer-right">
+        <button class="btn btn-secondary btn-sm" id="w-back-btn" onclick="wizardBack()" style="display:none">← Back</button>
+        <button class="btn btn-primary btn-sm" id="w-next-btn" onclick="wizardNext()">Let's Go →</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -71,7 +227,10 @@
 
   let _tz = 'UTC';
 
-  loadStatus().then(() => loadAlerts());
+  loadStatus().then(() => {
+    loadAlerts();
+    _checkFirstRun();
+  });
   loadDigestEndpoints();
 
   async function loadStatus() {
@@ -87,8 +246,256 @@
       document.getElementById('stat-timezone').textContent = data.timezone;
       document.getElementById('stat-scan-time').textContent = data.scan_time;
       _tz = data.timezone || 'UTC';
+      window._lastStatus = data;
     } catch(e) {
       console.error('Status load failed:', e);
+    }
+  }
+
+  function _checkFirstRun() {
+    const s = window._lastStatus;
+    if (s && s.endpoints === 0 && s.subscriptions === 0
+        && !localStorage.getItem('alertle_wizard_done')) {
+      showWizard();
+    }
+  }
+
+  // ── Wizard ────────────────────────────────────────────────────────────────
+
+  let _wizardStep = 0;
+  let _wizardEpId = '';
+  const _WIZARD_STEPS = 5;
+
+  function showWizard() {
+    document.getElementById('wizard-overlay').classList.remove('hidden');
+    wizardGoto(0);
+  }
+
+  function dismissWizard() {
+    localStorage.setItem('alertle_wizard_done', '1');
+    document.getElementById('wizard-overlay').classList.add('hidden');
+  }
+
+  function wizardGoto(step) {
+    for (let i = 0; i < _WIZARD_STEPS; i++) {
+      const body = document.getElementById(`wstep-${i}`);
+      const dot  = document.getElementById(`wdot-${i}`);
+      if (body) body.classList.toggle('hidden', i !== step);
+      if (dot) {
+        dot.classList.toggle('active', i === step);
+        dot.classList.toggle('done', i < step);
+      }
+    }
+    _wizardStep = step;
+    document.getElementById('w-back-btn').style.display = step > 0 ? '' : 'none';
+    const nextBtn = document.getElementById('w-next-btn');
+    if (step === 0) nextBtn.textContent = "Let's Go →";
+    else if (step === 4) nextBtn.textContent = 'Close';
+    else nextBtn.textContent = 'Save & Continue →';
+
+    if (step === 1) {
+      apiFetch('/api/status').then(s => {
+        const tz = document.getElementById('w-timezone');
+        if (!tz.value && s.timezone && s.timezone !== 'UTC') tz.value = s.timezone;
+      }).catch(() => {});
+    }
+    if (step === 3 && document.getElementById('w-league').options.length <= 1) {
+      wizardLoadLeagues();
+    }
+  }
+
+  function wizardBack() { if (_wizardStep > 0) wizardGoto(_wizardStep - 1); }
+
+  async function wizardNext() {
+    if (_wizardStep === 4) { dismissWizard(); return; }
+    if (_wizardStep === 1) { await wizardSaveSettings(); return; }
+    if (_wizardStep === 2) { await wizardSaveEndpoint(); return; }
+    if (_wizardStep === 3) { await wizardSaveSubscription(); return; }
+    wizardGoto(_wizardStep + 1);
+  }
+
+  async function wizardSaveSettings() {
+    const tz  = document.getElementById('w-timezone').value.trim() || 'UTC';
+    const url = document.getElementById('w-dispatcharr-url').value.trim();
+    const key = document.getElementById('w-dispatcharr-key').value.trim();
+    try {
+      const form = new FormData();
+      form.append('timezone', tz);
+      form.append('scan_time', '06:00');
+      form.append('dispatcharr_url', url);
+      form.append('dispatcharr_api_key', key);
+      await apiFetch('/api/settings', { method: 'POST', body: form });
+      wizardGoto(2);
+    } catch(e) {
+      alert('Failed to save settings: ' + e.message);
+    }
+  }
+
+  function wizardEndpointTypeChange() {
+    const t = document.getElementById('w-ep-type').value;
+    ['telegram','discord','pushover','ntfy'].forEach(type => {
+      document.getElementById(`w-creds-${type}`).classList.toggle('hidden', type !== t);
+    });
+  }
+
+  async function wizardSaveEndpoint() {
+    const id    = document.getElementById('w-ep-id').value.trim();
+    const type  = document.getElementById('w-ep-type').value;
+    const errEl = document.getElementById('w-ep-error');
+    errEl.textContent = '';
+    if (!id || !type) { errEl.textContent = 'Please fill in the name and type.'; return; }
+
+    const modes = [];
+    if (document.getElementById('w-mode-lead').checked)    modes.push('lead_time');
+    if (document.getElementById('w-mode-start').checked)   modes.push('game_start');
+    if (document.getElementById('w-mode-summary').checked) modes.push('game_summary');
+    if (document.getElementById('w-mode-digest').checked)  modes.push('digest');
+
+    const payload = { id, type, modes, lead_time_minutes: 30 };
+    if (type === 'telegram') {
+      payload.bot_token = document.getElementById('w-telegram-token').value.trim();
+      payload.chat_id   = document.getElementById('w-telegram-chat').value.trim();
+    } else if (type === 'discord') {
+      payload.webhook_url = document.getElementById('w-discord-webhook').value.trim();
+    } else if (type === 'pushover') {
+      payload.app_token = document.getElementById('w-pushover-token').value.trim();
+      payload.user_key  = document.getElementById('w-pushover-user').value.trim();
+    } else if (type === 'ntfy') {
+      payload.url   = document.getElementById('w-ntfy-url').value.trim() || 'https://ntfy.sh';
+      payload.topic = document.getElementById('w-ntfy-topic').value.trim();
+    }
+
+    try {
+      await apiFetch('/api/endpoints', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      _wizardEpId = id;
+      wizardGoto(3);
+    } catch(e) {
+      errEl.textContent = 'Failed to save endpoint: ' + e.message;
+    }
+  }
+
+  async function wizardTestDispatcharr() {
+    const url = document.getElementById('w-dispatcharr-url').value.trim();
+    const key = document.getElementById('w-dispatcharr-key').value.trim();
+    const el  = document.getElementById('w-dispatcharr-status');
+    el.textContent = 'Testing…';
+    try {
+      const p = new URLSearchParams({ url, api_key: key });
+      const res = await apiFetch('/api/settings/test-dispatcharr?' + p);
+      el.textContent = res.ok ? '✅ Connected' : '❌ ' + (res.error || 'Failed');
+      el.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+    } catch(e) {
+      el.textContent = '❌ ' + e.message;
+      el.style.color = 'var(--red)';
+    }
+  }
+
+  let _wizardLeagues = [];
+  async function wizardLoadLeagues() {
+    const leagues = await apiFetch('/api/espn/leagues').catch(() => []);
+    _wizardLeagues = leagues;
+    const sel = document.getElementById('w-league');
+    const teamGroup  = document.createElement('optgroup'); teamGroup.label  = 'Team Sports';
+    const eventGroup = document.createElement('optgroup'); eventGroup.label = 'Event Series';
+    leagues.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({sport: l.sport, league: l.league, is_event_series: l.is_event_series});
+      opt.textContent = l.label;
+      (l.is_event_series ? eventGroup : teamGroup).appendChild(opt);
+    });
+    sel.appendChild(teamGroup);
+    sel.appendChild(eventGroup);
+  }
+
+  async function wizardLeagueChange() {
+    const val = document.getElementById('w-league').value;
+    if (!val) return;
+    const {sport, league, is_event_series} = JSON.parse(val);
+    const scope = document.querySelector('input[name="w-scope"]:checked').value;
+    const leagueObj = _wizardLeagues.find(l => l.sport === sport && l.league === league);
+
+    document.getElementById('w-team-row').classList.add('hidden');
+    document.getElementById('w-team').innerHTML = '';
+
+    if (!is_event_series && scope === 'team') {
+      document.getElementById('w-team-row').classList.remove('hidden');
+      const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`).catch(() => []);
+      teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = JSON.stringify(t);
+        opt.textContent = t.name;
+        document.getElementById('w-team').appendChild(opt);
+      });
+    }
+
+    if (leagueObj) {
+      document.getElementById('w-sub-label').value = scope === 'league'
+        ? 'All ' + leagueObj.label + ' Games'
+        : '';
+    }
+  }
+
+  function wizardScopeChange() { wizardLeagueChange(); }
+
+  async function wizardSaveSubscription() {
+    const leagueVal = document.getElementById('w-league').value;
+    const label     = document.getElementById('w-sub-label').value.trim();
+    const errEl     = document.getElementById('w-sub-error');
+    errEl.textContent = '';
+    if (!leagueVal || !label) { errEl.textContent = 'Please select a league and enter a label.'; return; }
+
+    const {sport, league, is_event_series} = JSON.parse(leagueVal);
+    const scope = is_event_series ? 'event_series'
+      : document.querySelector('input[name="w-scope"]:checked').value;
+
+    let teamId = null, teamName = null, teamAbbrev = null;
+    if (scope === 'team') {
+      const tv = document.getElementById('w-team').value;
+      if (!tv) { errEl.textContent = 'Please select a team.'; return; }
+      const t = JSON.parse(tv);
+      teamId = t.id; teamName = t.name; teamAbbrev = t.abbreviation;
+    }
+
+    try {
+      await apiFetch('/api/subscriptions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          label, espn_sport: sport, espn_league: league, scope,
+          espn_team_id: teamId, espn_team_name: teamName, espn_team_abbrev: teamAbbrev,
+          game_thumbs_league: league, standings_alert: false,
+          content_overrides: {}, endpoints: _wizardEpId ? [_wizardEpId] : [],
+        }),
+      });
+      wizardGoto(4);
+    } catch(e) {
+      errEl.textContent = 'Failed to save subscription: ' + e.message;
+    }
+  }
+
+  async function wizardRunScan() {
+    const btn = document.querySelector('#wstep-4 .btn-primary');
+    const res = document.getElementById('w-scan-result');
+    btn.disabled = true; btn.textContent = 'Scanning…';
+    try {
+      const data = await apiFetch('/api/scan', { method: 'POST' });
+      if (data.ok) {
+        const s = data.summary;
+        res.textContent = `✅ ${s.unique_games} games found, ${s.alerts_scheduled} alerts scheduled.`;
+        res.style.color = 'var(--green)';
+      } else {
+        res.textContent = '❌ ' + (data.error || 'Scan failed');
+        res.style.color = 'var(--red)';
+      }
+    } catch(e) {
+      res.textContent = '❌ ' + e.message;
+      res.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Run Scan Now';
     }
   }
 
