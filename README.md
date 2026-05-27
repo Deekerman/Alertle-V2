@@ -6,7 +6,7 @@
 
 <p align="center"><em>He's slow. Your alerts aren't.</em></p>
 
-<p align="center">A self-hosted EPG monitoring and alert system. Built for sports fans, but flexible enough to notify you about any programming you care about.</p>
+<p align="center">A self-hosted sports alert system. NHL, NBA, NFL, Soccer, Golf, F1, and more — straight to your phone.</p>
 
 ---
 
