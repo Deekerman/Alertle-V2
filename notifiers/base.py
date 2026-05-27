@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -31,6 +32,10 @@ DEFAULT_GAME_SUMMARY_TEMPLATE = """🏆 {score}
 📺 {channels}
 {description}"""
 
+DEFAULT_DIGEST_GAME_TEMPLATE = """{context}
+{time}
+📺 {channels}"""
+
 
 def _get_template(endpoint: Endpoint, mode: str = "") -> str:
     """Return the active template for the given mode.
@@ -50,6 +55,19 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
             return gs_t
         log.debug("Template source: built-in DEFAULT_GAME_SUMMARY_TEMPLATE for %s", endpoint.id)
         return DEFAULT_GAME_SUMMARY_TEMPLATE
+    elif mode == "digest":
+        ep_t = endpoint._raw.get("digest_game_template", "")
+        if ep_t:
+            log.debug("Template source: endpoint override (digest) for %s", endpoint.id)
+            return ep_t
+        import config as _cfg
+        nd = _cfg.load_config().get("notification_defaults", {})
+        d_t = nd.get("digest_game_template", "")
+        if d_t:
+            log.debug("Template source: global digest_game_template for %s", endpoint.id)
+            return d_t
+        log.debug("Template source: built-in DEFAULT_DIGEST_GAME_TEMPLATE for %s", endpoint.id)
+        return DEFAULT_DIGEST_GAME_TEMPLATE
     else:
         ep_t = endpoint._raw.get("notification_template", "")
         if ep_t:
@@ -234,3 +252,57 @@ def build_digest_lines(
         build_game_lines(match, endpoint, sub, tz_name, mode="digest")
         for match, sub in matches
     ]
+
+
+def build_league_digest(
+    matches_subs: list[tuple[GameMatch, Subscription]],
+    endpoint: Endpoint,
+    tz_name: str,
+) -> list[dict]:
+    """
+    Group games by league and build one content dict per league group.
+    Returns list of dicts with keys: sport, league, label, title, thumb_url, games.
+    Used by all notifiers for the grouped per-league digest format.
+    """
+    groups: defaultdict[tuple[str, str], list[tuple[GameMatch, Subscription]]] = defaultdict(list)
+    for match, sub in matches_subs:
+        groups[(match.game.sport, match.game.league)].append((match, sub))
+
+    # Load game-thumbs config once
+    thumb_base = _GAME_THUMBS_DEFAULT
+    thumbs_enabled = True
+    try:
+        import config as cfg_module
+        gt = cfg_module.get_game_thumbs(cfg_module.load_config())
+        if gt:
+            thumb_base = gt.get("base_url", _GAME_THUMBS_DEFAULT)
+            thumbs_enabled = gt.get("enabled", True)
+    except Exception:
+        pass
+
+    result = []
+    for (sport, league), group in groups.items():
+        game_lines = [
+            build_game_lines(m, endpoint, sub, tz_name, mode="digest")
+            for m, sub in group
+        ]
+        label = group[0][1].label or league.upper()
+        n = len(group)
+        title = f"Today's {label} {'Games' if n != 1 else 'Game'}"
+
+        thumb_url = ""
+        if thumbs_enabled:
+            try:
+                thumb_url = build_league_url(league, base_url=thumb_base)
+            except Exception:
+                pass
+
+        result.append({
+            "sport":     sport,
+            "league":    league,
+            "label":     label,
+            "title":     title,
+            "thumb_url": thumb_url,
+            "games":     game_lines,
+        })
+    return result

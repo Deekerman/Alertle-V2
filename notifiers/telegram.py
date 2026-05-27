@@ -81,14 +81,27 @@ async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool
 
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
                       endpoint: Endpoint, tz_name: str) -> bool:
+    from notifiers.base import build_league_digest
     raw = endpoint._raw
     token = raw.get("bot_token", "")
     chat_id = raw.get("chat_id", "")
     if not token or not chat_id:
         return False
-    all_lines = build_digest_lines(matches_subs, endpoint, tz_name)
-    parts = ["🐢 <b>Today's Games</b>"]
-    for lines, (match, _) in zip(all_lines, matches_subs):
-        parts.append(_format_message(lines, match.game.sport))
-    text = "\n\n".join(parts)
-    return await _send_message(token, chat_id, text)
+
+    ok = True
+    for group in build_league_digest(matches_subs, endpoint, tz_name):
+        emoji = _emoji(group["sport"])
+        header = f"<b>{emoji} {group['title']}</b>"
+        parts = [g["rendered"] for g in group["games"] if g.get("rendered")]
+        body = "\n\n".join(parts)
+        text = f"{header}\n\n{body}" if body else header
+
+        if group["thumb_url"]:
+            caption = text if len(text) <= 1024 else text[:1021] + "…"
+            sent = await _send_photo(token, chat_id, group["thumb_url"], caption)
+            if not sent:
+                sent = await _send_message(token, chat_id, text[:4096])
+        else:
+            sent = await _send_message(token, chat_id, text[:4096])
+        ok = ok and sent
+    return ok

@@ -77,21 +77,26 @@ async def send_digest(
     endpoint: Endpoint,
     tz_name: str,
 ) -> bool:
-    all_lines = build_digest_lines(matches_subs, endpoint, tz_name)
-    if not all_lines:
-        return True
-
+    from notifiers.base import build_league_digest
     embeds = []
-    for lines, (match, _) in zip(all_lines, matches_subs):
-        embeds.append(_build_single_embed(lines, match.game.sport))
+    for group in build_league_digest(matches_subs, endpoint, tz_name):
+        emoji = _sport_emoji(group["sport"])
+        parts = [g["rendered"] for g in group["games"] if g.get("rendered")]
+        embed: dict[str, Any] = {
+            "title": f"{emoji} {group['title']}",
+            "description": "\n\n".join(parts) or "No games.",
+            "color": _colour_for_sport(group["sport"]),
+        }
+        if group["thumb_url"]:
+            embed["thumbnail"] = {"url": group["thumb_url"]}
+        embeds.append(embed)
         if len(embeds) >= 10:
             break
 
-    payload = {
-        "content": "🐢 **Today's Games**",
-        "embeds": embeds,
-    }
-    return await _post_webhook(endpoint._raw.get("webhook_url", ""), payload)
+    if not embeds:
+        return True
+    return await _post_webhook(endpoint._raw.get("webhook_url", ""),
+                               {"content": "🐢 **Today's Games**", "embeds": embeds})
 
 
 async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:

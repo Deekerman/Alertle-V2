@@ -75,7 +75,20 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
 
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
                       endpoint: Endpoint, tz_name: str) -> bool:
-    return await send_bundled(matches_subs, endpoint, tz_name, mode="digest")
+    from notifiers.base import build_league_digest
+    raw = endpoint._raw
+    token = raw.get("app_token", "")
+    user_key = raw.get("user_key", "")
+    if not token or not user_key:
+        return False
+    ok = True
+    for group in build_league_digest(matches_subs, endpoint, tz_name):
+        emoji = _emoji(group["sport"])
+        title = f"{emoji} {group['title']}"
+        parts = [g["rendered"] for g in group["games"] if g.get("rendered")]
+        message = "\n\n".join(parts)[:1024]
+        ok = ok and await _send(token, user_key, title, message)
+    return ok
 
 
 async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:

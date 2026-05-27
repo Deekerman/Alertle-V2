@@ -137,6 +137,12 @@ async def save_settings(request: Request):
     else:
         raw["notification_defaults"].pop("game_summary_template", None)
 
+    dg_template = (form.get("digest_game_template") or "").strip()
+    if dg_template:
+        raw["notification_defaults"]["digest_game_template"] = dg_template
+    else:
+        raw["notification_defaults"].pop("digest_game_template", None)
+
     cfg_module.save_config(raw)
     return JSONResponse({"ok": True})
 
