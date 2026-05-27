@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Subscriptions</h1>
-  <button class="btn btn-primary" onclick="openModal('add-sub-modal')">+ Add Subscription</button>
+  <button class="btn btn-primary" onclick="resetSubForm(); openModal('add-sub-modal')">+ Add Subscription</button>
 </div>
 
 {% if subscriptions %}
@@ -40,7 +40,9 @@
           <span class="badge">{{ ep }}</span>
         {% endfor %}
       </td>
-      <td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm"
+                onclick='editSub({{ {"label": sub.label, "espn_sport": sub.espn_sport, "espn_league": sub.espn_league, "scope": sub.scope, "espn_team_id": sub.espn_team_id, "espn_team_name": sub.espn_team_name, "espn_team_abbrev": sub.espn_team_abbrev, "game_thumbs_league": sub.game_thumbs_league, "standings_alert": sub.standings_alert, "endpoints": sub.endpoints} | tojson }})'>Edit</button>
         <button class="btn btn-danger btn-sm"
                 onclick="deleteSub('{{ sub.label | e }}')">Delete</button>
       </td>
@@ -58,7 +60,7 @@
 <div class="modal-overlay hidden" id="add-sub-modal">
   <div class="modal">
     <div class="modal-header">
-      <h2>Add Subscription</h2>
+      <h2 id="sub-modal-title">Add Subscription</h2>
       <button class="modal-close" onclick="closeModal('add-sub-modal')">✕</button>
     </div>
     <form id="sub-form" onsubmit="saveSub(event)">
@@ -125,7 +127,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal('add-sub-modal')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add Subscription</button>
+        <button type="submit" class="btn btn-primary" id="sub-submit-btn">Add Subscription</button>
       </div>
     </form>
   </div>
@@ -280,6 +282,80 @@
     if (!confirm(`Delete subscription "${label}"?`)) return;
     await apiFetch('/api/subscriptions/' + encodeURIComponent(label), { method: 'DELETE' });
     location.reload();
+  }
+
+  function resetSubForm() {
+    document.getElementById('sub-modal-title').textContent = 'Add Subscription';
+    document.getElementById('sub-submit-btn').textContent = 'Add Subscription';
+    document.getElementById('sub-label').value = '';
+    document.getElementById('sub-label').readOnly = false;
+    document.getElementById('sub-league').value = '';
+    document.getElementById('sub-team').innerHTML = '<option value="">Select a team…</option>';
+    document.querySelectorAll('input[name="endpoints"]').forEach(cb => cb.checked = false);
+    document.querySelector('input[name="scope"][value="league"]').checked = true;
+    document.getElementById('scope-row').classList.remove('hidden');
+    document.getElementById('team-row').classList.add('hidden');
+    document.getElementById('standings-row').classList.add('hidden');
+    document.getElementById('standings-alert').checked = false;
+  }
+
+  function editSub(data) {
+    resetSubForm();
+    document.getElementById('sub-modal-title').textContent = 'Edit Subscription';
+    document.getElementById('sub-submit-btn').textContent = 'Save Changes';
+
+    // Label is the key — make read-only so the update replaces the right record
+    const labelEl = document.getElementById('sub-label');
+    labelEl.value = data.label;
+    labelEl.readOnly = true;
+
+    // Pre-check endpoints
+    document.querySelectorAll('input[name="endpoints"]').forEach(cb => {
+      cb.checked = (data.endpoints || []).includes(cb.value);
+    });
+
+    // Standings alert (event series)
+    if (data.standings_alert) {
+      document.getElementById('standings-alert').checked = true;
+    }
+
+    // Select league in dropdown (leagues already loaded by init())
+    const leagueSel = document.getElementById('sub-league');
+    for (const opt of leagueSel.options) {
+      if (!opt.value) continue;
+      try {
+        const p = JSON.parse(opt.value);
+        if (p.sport === data.espn_sport && p.league === data.espn_league) {
+          leagueSel.value = opt.value;
+          break;
+        }
+      } catch(e) {}
+    }
+
+    // Set scope UI
+    if (data.scope === 'event_series') {
+      document.getElementById('scope-row').classList.add('hidden');
+      document.getElementById('standings-row').classList.remove('hidden');
+    } else {
+      const scopeRadio = document.querySelector(`input[name="scope"][value="${data.scope}"]`);
+      if (scopeRadio) scopeRadio.checked = true;
+      if (data.scope === 'team' && data.espn_team_id) {
+        document.getElementById('team-row').classList.remove('hidden');
+        apiFetch(`/api/espn/teams/${data.espn_sport}/${data.espn_league}`).then(teams => {
+          const teamSel = document.getElementById('sub-team');
+          teamSel.innerHTML = '<option value="">Select a team…</option>';
+          teams.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(t);
+            opt.textContent = t.name;
+            teamSel.appendChild(opt);
+            if (t.id === data.espn_team_id) teamSel.value = opt.value;
+          });
+        }).catch(() => {});
+      }
+    }
+
+    openModal('add-sub-modal');
   }
 
   init();
