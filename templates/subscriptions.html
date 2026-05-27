@@ -8,6 +8,7 @@
 </div>
 
 {% if subscriptions %}
+<div class="table-wrap">
 <table class="data-table">
   <thead>
     <tr>
@@ -50,6 +51,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <div class="empty-state">
   <p>No subscriptions yet. Add one to start receiving alerts.</p>

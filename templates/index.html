@@ -572,6 +572,7 @@
       }
 
       container.innerHTML = `
+        <div class="table-wrap">
         <table class="data-table">
           <thead>
             <tr>
@@ -585,7 +586,8 @@
             </tr>
           </thead>
           <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+        </div>`;
     } catch(e) {
       container.innerHTML = '<p class="hint text-red">Failed to load alerts: ' + e.message + '</p>';
     }

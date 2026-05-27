@@ -35,10 +35,17 @@ function closeModal(id) {
   if (el) el.classList.add('hidden');
 }
 
-// Close modals when clicking outside of them
+function toggleNav() {
+  document.getElementById('nav-links')?.classList.toggle('open');
+}
+
+// Close modals when clicking outside of them; close mobile nav when link clicked
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-overlay')) {
     e.target.classList.add('hidden');
+  }
+  if (e.target.classList.contains('nav-link')) {
+    document.getElementById('nav-links')?.classList.remove('open');
   }
 });
 
