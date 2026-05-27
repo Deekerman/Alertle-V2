@@ -4,15 +4,17 @@ Alertle-V2 — Main FastAPI application.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import logging.handlers
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -384,6 +386,157 @@ async def test_pending_alert(alert_id: str):
     except Exception as e:
         log.exception("Test alert failed")
         return JSONResponse({"ok": False, "error": str(e)})
+
+
+@app.get("/api/backup")
+async def download_backup():
+    raw = cfg_module.load_config()
+    backup = {
+        "alertle_backup_version": "2",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "settings": raw.get("settings", {}),
+        "dispatcharr": raw.get("dispatcharr", {}),
+        "game_thumbs": raw.get("game_thumbs", {}),
+        "notification_defaults": raw.get("notification_defaults", {}),
+        "epg_sources": raw.get("epg_sources", []),
+        "endpoints": raw.get("endpoints", []),
+        "subscriptions": raw.get("subscriptions", []),
+    }
+    content = json.dumps(backup, indent=2)
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="alertle-backup-{date_str}.json"'},
+    )
+
+
+def _transform_v1_endpoints(v1: dict) -> list[dict]:
+    default_lead = int(v1.get("default_lead_time_minutes", 30))
+    default_bundle = int(v1.get("group_window_minutes", 10))
+    endpoints = []
+    for ep in v1.get("notification_endpoints", []):
+        e: dict[str, Any] = {
+            "id": ep["id"],
+            "type": ep["type"],
+            "modes": ["lead_time", "game_summary"],
+            "lead_time_minutes": default_lead,
+            "precision_minutes": 0,
+            "digest_time": "08:00",
+            "digest_team_days": 1,
+            "digest_event_days": 7,
+            "bundle_window_minutes": default_bundle,
+        }
+        for cred in ("webhook_url", "bot_token", "chat_id", "app_token", "user_key", "url", "topic", "token"):
+            if cred in ep:
+                e[cred] = ep[cred]
+        endpoints.append(e)
+    return endpoints
+
+
+async def _transform_v1_subscriptions(v1: dict) -> tuple[list[dict], list[dict]]:
+    subs, skipped = [], []
+    for sub in v1.get("subscriptions", []):
+        label = sub.get("label", "?")
+        sport = sub.get("espn_sport")
+        league = sub.get("espn_league")
+        if not sport or not league:
+            skipped.append({"label": label, "reason": "No ESPN sport/league — EPG-pattern subscriptions cannot be auto-migrated"})
+            continue
+
+        team_name = sub.get("espn_team") or None
+        scope = "team" if team_name else "league"
+        team_id, team_abbrev = None, None
+
+        if team_name:
+            try:
+                teams = await get_teams(sport, league)
+                match = next((t for t in teams if t.name.lower() == team_name.lower()), None)
+                if match:
+                    team_id = match.id
+                    team_abbrev = match.abbreviation
+            except Exception:
+                pass
+
+        subs.append({
+            "label": label,
+            "espn_sport": sport,
+            "espn_league": league,
+            "scope": scope,
+            "espn_team_id": team_id,
+            "espn_team_name": team_name,
+            "espn_team_abbrev": team_abbrev,
+            "game_thumbs_league": sub.get("game_thumbs_league") or league,
+            "standings_alert": False,
+            "content_overrides": {},
+            "endpoints": sub.get("notify_channels", []),
+        })
+    return subs, skipped
+
+
+@app.post("/api/restore")
+async def restore_backup(file: UploadFile = File(...)):
+    content = await file.read()
+    data: dict | None = None
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, ValueError):
+        try:
+            data = yaml.safe_load(content)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"Could not parse file: {e}"})
+
+    if not isinstance(data, dict):
+        return JSONResponse({"ok": False, "error": "Invalid backup file — expected a JSON or YAML object."})
+
+    raw = cfg_module.load_config()
+
+    if data.get("alertle_backup_version") == "2":
+        for key in ("settings", "dispatcharr", "game_thumbs", "notification_defaults",
+                    "epg_sources", "endpoints", "subscriptions"):
+            if key in data:
+                raw[key] = data[key]
+        cfg_module.save_config(raw)
+        return JSONResponse({
+            "ok": True, "format": "v2",
+            "imported_endpoints": len(data.get("endpoints", [])),
+            "imported_subscriptions": len(data.get("subscriptions", [])),
+            "skipped": [],
+        })
+
+    if "notification_endpoints" in data:
+        new_endpoints = _transform_v1_endpoints(data)
+        new_subs, skipped = await _transform_v1_subscriptions(data)
+
+        raw.setdefault("endpoints", [])
+        raw.setdefault("subscriptions", [])
+        existing_ep_ids = {e["id"] for e in raw["endpoints"]}
+        existing_labels = {s["label"] for s in raw["subscriptions"]}
+
+        added_ep, added_sub = 0, 0
+        for ep in new_endpoints:
+            if ep["id"] not in existing_ep_ids:
+                raw["endpoints"].append(ep)
+                added_ep += 1
+        for sub in new_subs:
+            if sub["label"] not in existing_labels:
+                raw["subscriptions"].append(sub)
+                added_sub += 1
+
+        cfg_module.save_config(raw)
+        needs_team_fix = [s["label"] for s in new_subs if s.get("scope") == "team" and not s.get("espn_team_id")]
+        note = ("Team subscriptions imported without a team ID (ESPN API unreachable during import). "
+                "Open and re-save each one in the Subscriptions page to resolve.") if needs_team_fix else None
+        return JSONResponse({
+            "ok": True, "format": "v1",
+            "imported_endpoints": added_ep,
+            "imported_subscriptions": added_sub,
+            "skipped": skipped,
+            "needs_team_fix": needs_team_fix,
+            "note": note,
+        })
+
+    return JSONResponse({"ok": False, "error": "Unrecognized file format. Expected an Alertle V2 backup JSON or a V1 config YAML."})
 
 
 @app.get("/api/logs")

@@ -198,6 +198,34 @@
     </div>
   </section>
 </div>
+<!-- Backup & Restore -->
+<div class="form-card" style="margin-top:2rem">
+  <section class="form-section" style="margin-bottom:0">
+    <h2>Backup &amp; Restore</h2>
+    <p class="hint" style="margin-bottom:1.25rem">
+      Backup exports all endpoints, subscriptions, and settings as a JSON file.
+      Restore replaces your current config from a V2 backup, or merges endpoints
+      and subscriptions from a V1 <code>config.yaml</code>.
+    </p>
+
+    <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem">
+      <a href="/api/backup" class="btn btn-secondary" download>⬇ Download Backup</a>
+      <span class="hint">Saves a complete snapshot of your configuration.</span>
+    </div>
+
+    <div class="form-row" style="max-width:420px">
+      <label for="restore-file">Restore / Import file</label>
+      <input type="file" id="restore-file" accept=".json,.yaml,.yml"
+             style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:.4rem .75rem;font-size:.9rem">
+      <span class="hint">Accepts a V2 backup <code>.json</code> or a V1 <code>config.yaml</code>.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary" onclick="doRestore()">↑ Restore / Import</button>
+      <span id="restore-status" class="inline-status"></span>
+    </div>
+    <div id="restore-result" class="hidden" style="margin-top:1rem"></div>
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -400,6 +428,50 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  }
+
+  async function doRestore() {
+    const fileEl = document.getElementById('restore-file');
+    const statusEl = document.getElementById('restore-status');
+    const resultEl = document.getElementById('restore-result');
+    if (!fileEl.files.length) { alert('Please select a file first.'); return; }
+
+    statusEl.className = 'inline-status text-dim';
+    statusEl.textContent = 'Uploading…';
+    resultEl.className = 'hidden';
+    resultEl.innerHTML = '';
+
+    const form = new FormData();
+    form.append('file', fileEl.files[0]);
+    try {
+      const res = await apiFetch('/api/restore', { method: 'POST', body: form });
+      statusEl.textContent = '';
+      resultEl.className = '';
+      if (!res.ok) {
+        resultEl.innerHTML = `<p class="hint" style="color:var(--red)">❌ ${res.error}</p>`;
+        return;
+      }
+      const fmt = res.format === 'v1' ? 'V1 import' : 'V2 restore';
+      let html = `<p style="color:var(--green);font-weight:600">✅ ${fmt} complete</p>`;
+      html += `<p class="hint">Endpoints: ${res.imported_endpoints} imported. Subscriptions: ${res.imported_subscriptions} imported.</p>`;
+      if (res.skipped && res.skipped.length) {
+        html += `<p class="hint" style="margin-top:.5rem"><strong>Skipped (${res.skipped.length}):</strong></p><ul style="margin-top:.25rem;padding-left:1.25rem">`;
+        res.skipped.forEach(s => { html += `<li class="hint">${s.label} — ${s.reason}</li>`; });
+        html += '</ul>';
+      }
+      if (res.needs_team_fix && res.needs_team_fix.length) {
+        html += `<p class="hint" style="margin-top:.5rem;color:var(--red)">⚠ Team ID not resolved for: ${res.needs_team_fix.join(', ')}. Open each in Subscriptions and re-save.</p>`;
+      }
+      if (res.format === 'v2') {
+        html += `<p class="hint" style="margin-top:.5rem">Page will reload in 2 seconds…</p>`;
+      }
+      resultEl.innerHTML = html;
+      if (res.format === 'v2') setTimeout(() => location.reload(), 2000);
+    } catch(e) {
+      statusEl.textContent = '';
+      resultEl.className = '';
+      resultEl.innerHTML = `<p class="hint" style="color:var(--red)">❌ ${e.message}</p>`;
+    }
   }
 </script>
 {% endblock %}
