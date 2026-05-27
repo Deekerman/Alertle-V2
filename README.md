@@ -29,21 +29,20 @@ If it works, great. If something breaks, that's also the vibes. PRs are welcome.
 ```yaml
 services:
   alertle-v2:
-    image: ghcr.io/deekerman/alertle-v2:latest
+    image: ghcr.io/deekerman/alertle-v2:b4f36b8
     container_name: alertle-v2
     pull_policy: always
     restart: unless-stopped
     environment:
       TZ: America/Toronto
-      ALERTLE_CONFIG: /config/config.yaml
     ports:
-      - "8888:8888"
+      - 8888:8888
     volumes:
       - ./alertle-v2/config.yaml:/config/config.yaml
       - alertle_data:/app/data
-
 volumes:
-  alertle_data:
+  alertle_data: null
+networks: {}
 ```
 
 ```bash
