@@ -305,8 +305,12 @@ def build_league_digest(
             for m, sub in group
         ]
         label = group[0][1].label or league.upper()
-        n = len(group)
-        title = f"Today's {label} {'Games' if n != 1 else 'Game'}"
+        is_event_group = any(m.game.id.startswith("event:") for m, _ in group)
+        if is_event_group:
+            title = f"Today's {label} Event"
+        else:
+            n = len(group)
+            title = f"Today's {label} {'Games' if n != 1 else 'Game'}"
 
         thumb_url = ""
         if thumbs_enabled:
