@@ -41,6 +41,14 @@
   <div id="scan-result" class="scan-result hidden"></div>
 </div>
 
+<div class="section" id="digest-section" style="display:none">
+  <div class="section-header">
+    <h2>Morning Digest</h2>
+  </div>
+  <p class="hint" style="margin-bottom:.75rem">Send a digest of all upcoming games immediately (does not affect the scheduled digest).</p>
+  <div id="digest-buttons"></div>
+</div>
+
 <div class="section">
   <div class="section-header">
     <h2>Upcoming Notifications</h2>
@@ -65,6 +73,7 @@
 
   loadStatus();
   loadAlerts();
+  loadDigestEndpoints();
 
   async function loadStatus() {
     try {
@@ -81,6 +90,43 @@
       _tz = data.timezone || 'UTC';
     } catch(e) {
       console.error('Status load failed:', e);
+    }
+  }
+
+  async function loadDigestEndpoints() {
+    try {
+      const eps = await apiFetch('/api/digest-endpoints');
+      if (!eps.length) return;
+      const section = document.getElementById('digest-section');
+      const container = document.getElementById('digest-buttons');
+      section.style.display = '';
+      container.innerHTML = eps.map(ep => `
+        <div style="display:inline-flex;align-items:center;gap:.5rem;margin:.25rem .75rem .25rem 0">
+          <span class="badge badge--type">${ep.id}</span>
+          <span class="text-dim" style="font-size:.8rem">${ep.digest_time}</span>
+          <button class="btn btn-secondary btn-sm" onclick="testDigest(this,'${encodeURIComponent(ep.id)}')">Test Digest</button>
+          <span class="inline-status" style="font-size:.82rem"></span>
+        </div>`).join('');
+    } catch(e) { console.error('Digest endpoints load failed:', e); }
+  }
+
+  async function testDigest(btn, encodedId) {
+    const statusEl = btn.nextElementSibling;
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    statusEl.textContent = '';
+    try {
+      const res = await apiFetch('/api/test-digest/' + encodedId, { method: 'POST' });
+      statusEl.textContent = res.ok ? '✅ Sent' : '❌ ' + (res.error || 'Error');
+      statusEl.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+    } catch(e) {
+      statusEl.textContent = '❌ ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
     }
   }
 

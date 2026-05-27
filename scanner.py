@@ -128,6 +128,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     scheduled_count = 0
     no_channel_count = 0
     games_seen: set[str] = set()
+    digest_matches: dict[str, list[tuple[GameMatch, Subscription]]] = {}
 
     for sub in subs:
         if sub.scope == "event_series":
@@ -166,6 +167,8 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                     continue
                 scheduler.schedule_game(match, sub, ep)
                 scheduled_count += 1
+                if "digest" in ep.modes:
+                    digest_matches.setdefault(ep.id, []).append((match, sub))
 
             games_seen.add(game.id)
 
@@ -315,6 +318,8 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                             "event_id": event_id,
                         })
                     scheduled_count += 1
+                    if "digest" in ep.modes:
+                        digest_matches.setdefault(ep.id, []).append((match, sub))
 
                 if sub.standings_alert and event and today_has_coverage:
                     standings_scheduled = True
@@ -331,6 +336,14 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
 
         except Exception as e:
             log.error("Event series scan failed for %s: %s", sub.label, e)
+
+    # Schedule daily digests for endpoints that have digest mode
+    for ep in endpoints:
+        if "digest" not in ep.modes:
+            continue
+        matches = digest_matches.get(ep.id, [])
+        if matches:
+            scheduler.schedule_digest(ep, matches, tz_name)
 
     # Arm any newly added tasks
     scheduler.arm_all_pending()

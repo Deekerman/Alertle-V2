@@ -128,12 +128,12 @@ async def _dispatch(
     if not mod:
         log.error("Unknown endpoint type: %s", endpoint.type)
         return
-    if len(matches_subs) == 1:
+    if mode == "digest":
+        await mod.send_digest(matches_subs, endpoint, tz_name)
+    elif len(matches_subs) == 1:
         match, sub = matches_subs[0]
         await mod.send_single(match, endpoint, sub, tz_name, mode=mode,
                               winner_abbrev=winner_abbrev)
-    elif mode == "digest":
-        await mod.send_digest(matches_subs, endpoint, tz_name)
     else:
         await mod.send_bundled(matches_subs, endpoint, tz_name, mode=mode)
 
@@ -247,6 +247,12 @@ class AlertScheduler:
             self._tasks.pop(alert.id, None)
             return
 
+        if alert.mode == "digest":
+            await self._fire_digest(alert, endpoint, tz_name)
+            _mark_sent(self._conn, alert.id)
+            self._tasks.pop(alert.id, None)
+            return
+
         match = _deserialise_match(alert.game_match_json)
         sub = _find_sub_for_game(match.game, cfg_module.get_subscriptions(raw), alert.endpoint_id)
 
@@ -256,6 +262,32 @@ class AlertScheduler:
             await _dispatch(endpoint, alert.mode, [(match, sub)], tz_name)
             _mark_sent(self._conn, alert.id)
             self._tasks.pop(alert.id, None)
+
+    async def _fire_digest(
+        self,
+        alert: ScheduledAlert,
+        endpoint: Endpoint,
+        tz_name: str,
+    ) -> None:
+        raw = cfg_module.load_config()
+        subs = cfg_module.get_subscriptions(raw)
+        try:
+            matches_data = json.loads(alert.game_match_json)
+        except Exception:
+            log.error("Failed to parse digest game_match_json for alert %s", alert.id)
+            return
+        matches_subs = []
+        for match_dict in matches_data:
+            try:
+                match = _deserialise_match(json.dumps(match_dict))
+                sub = _find_sub_for_game(match.game, subs, alert.endpoint_id)
+                matches_subs.append((match, sub))
+            except Exception as e:
+                log.warning("Skipping invalid match in digest %s: %s", alert.id, e)
+        if not matches_subs:
+            log.warning("Digest alert %s has no valid matches — skipping", alert.id)
+            return
+        await _dispatch(endpoint, "digest", matches_subs, tz_name)
 
     async def _fire_standings(
         self,
@@ -314,6 +346,110 @@ class AlertScheduler:
         )
         _upsert_alert(self._conn, alert)
         log.info("Scheduled standings alert for %s at %s", event_info["event_name"], fire_at)
+
+    def schedule_digest(
+        self,
+        endpoint: Endpoint,
+        matches_subs: list[tuple[GameMatch, Subscription]],
+        tz_name: str,
+    ) -> None:
+        """Schedule a digest alert for endpoint.digest_time containing all supplied games."""
+        from zoneinfo import ZoneInfo
+        if not matches_subs:
+            return
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = timezone.utc
+
+        now_local = datetime.now(tz)
+        try:
+            h, m = (int(x) for x in endpoint.digest_time.split(":"))
+        except Exception:
+            h, m = 8, 0
+        fire_local = now_local.replace(hour=h, minute=m, second=0, microsecond=0)
+        if fire_local <= now_local:
+            fire_local += timedelta(days=1)
+        fire_at = fire_local.astimezone(timezone.utc)
+
+        today = now_local.date().isoformat()
+        alert_id = f"digest:{endpoint.id}:{today}"
+
+        matches_json = json.dumps([json.loads(_serialise_match(m)) for m, _ in matches_subs])
+
+        alert = ScheduledAlert(
+            id=alert_id,
+            game_id=f"digest:{endpoint.id}",
+            endpoint_id=endpoint.id,
+            mode="digest",
+            fire_at=fire_at,
+            game_match_json=matches_json,
+        )
+        _upsert_alert(self._conn, alert)
+        log.info("Scheduled digest for %s at %s (%d games)", endpoint.id, fire_at, len(matches_subs))
+
+    async def test_fire_digest(self, endpoint_id: str) -> bool:
+        """Fire a digest immediately for an endpoint without marking it sent."""
+        raw = cfg_module.load_config()
+        endpoint = cfg_module.get_endpoint_by_id(endpoint_id, raw)
+        if not endpoint:
+            log.warning("Endpoint %s not found for digest test", endpoint_id)
+            return False
+
+        tz_name = cfg_module.get_timezone(raw)
+        subs = cfg_module.get_subscriptions(raw)
+
+        # Prefer the scheduled digest alert if one exists
+        row = self._conn.execute(
+            "SELECT game_match_json FROM scheduled_alerts "
+            "WHERE endpoint_id=? AND mode='digest' AND sent=0 "
+            "ORDER BY fire_at DESC LIMIT 1",
+            (endpoint_id,)
+        ).fetchone()
+
+        if row:
+            try:
+                matches_data = json.loads(row[0])
+                matches_subs = []
+                for match_dict in matches_data:
+                    match = _deserialise_match(json.dumps(match_dict))
+                    sub = _find_sub_for_game(match.game, subs, endpoint_id)
+                    matches_subs.append((match, sub))
+                if matches_subs:
+                    await _dispatch(endpoint, "digest", matches_subs, tz_name)
+                    return True
+            except Exception as e:
+                log.warning("Digest alert load failed, falling back to pending alerts: %s", e)
+
+        # Fallback: build from all pending non-digest game alerts for this endpoint
+        rows = self._conn.execute(
+            "SELECT DISTINCT game_match_json FROM scheduled_alerts "
+            "WHERE endpoint_id=? AND sent=0 AND mode NOT IN ('standings','digest')",
+            (endpoint_id,)
+        ).fetchall()
+
+        if not rows:
+            log.info("No pending alerts found for digest test of endpoint %s", endpoint_id)
+            return False
+
+        matches_subs = []
+        seen_game_ids: set[str] = set()
+        for (match_json,) in rows:
+            try:
+                match = _deserialise_match(match_json)
+                if match.game.id in seen_game_ids:
+                    continue
+                seen_game_ids.add(match.game.id)
+                sub = _find_sub_for_game(match.game, subs, endpoint_id)
+                matches_subs.append((match, sub))
+            except Exception as e:
+                log.warning("Skipping invalid match in digest test: %s", e)
+
+        if not matches_subs:
+            return False
+
+        await _dispatch(endpoint, "digest", matches_subs, tz_name)
+        return True
 
     async def _fire_summary_with_retry(
         self,
@@ -417,6 +553,22 @@ class AlertScheduler:
                         "home_team": data.get("event_name", ""),
                         "sport": data.get("sport", ""),
                         "league": data.get("league", "").upper(),
+                        "channels": [],
+                        "game_start": alert.fire_at.isoformat(),
+                    })
+                elif alert.mode == "digest":
+                    matches_data = json.loads(alert.game_match_json)
+                    game_count = len(matches_data) if isinstance(matches_data, list) else 0
+                    result.append({
+                        "id": alert.id,
+                        "endpoint_id": alert.endpoint_id,
+                        "mode": "digest",
+                        "fire_at": alert.fire_at.isoformat(),
+                        "game_id": alert.game_id,
+                        "away_team": "",
+                        "home_team": f"{game_count} game{'s' if game_count != 1 else ''}",
+                        "sport": "",
+                        "league": "DIGEST",
                         "channels": [],
                         "game_start": alert.fire_at.isoformat(),
                     })

@@ -339,6 +339,29 @@ async def cleanup_stale_alerts():
         return JSONResponse({"ok": False, "error": str(e)})
 
 
+@app.get("/api/digest-endpoints")
+async def digest_endpoints_api():
+    raw = cfg_module.load_config()
+    result = [
+        {"id": ep.id, "type": ep.type, "digest_time": ep.digest_time}
+        for ep in cfg_module.get_endpoints(raw)
+        if "digest" in ep.modes
+    ]
+    return JSONResponse(result)
+
+
+@app.post("/api/test-digest/{endpoint_id}")
+async def test_digest(endpoint_id: str):
+    if not scheduler:
+        return JSONResponse({"ok": False, "error": "Scheduler not ready"})
+    try:
+        ok = await scheduler.test_fire_digest(endpoint_id)
+        return JSONResponse({"ok": ok, "error": None if ok else "No games found — run a scan first"})
+    except Exception as e:
+        log.exception("Test digest failed")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
 @app.post("/api/pending-alerts/{alert_id:path}/test")
 async def test_pending_alert(alert_id: str):
     if not scheduler:
