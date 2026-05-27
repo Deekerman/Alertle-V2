@@ -164,6 +164,25 @@
             <option value="15">±15 min</option>
           </select>
         </div>
+        <div class="form-row">
+          <label for="digest-team-days">Digest — Team Sports</label>
+          <select id="digest-team-days">
+            <option value="1" selected>Today only</option>
+            <option value="2">Today + Tomorrow</option>
+            <option value="3">Next 3 days</option>
+            <option value="7">Full week</option>
+          </select>
+          <span class="hint">Days of team sport games to include in the morning digest.</span>
+        </div>
+        <div class="form-row">
+          <label for="digest-event-days">Digest — Events (Golf, F1…)</label>
+          <select id="digest-event-days">
+            <option value="2">Next 2 days</option>
+            <option value="4">Next 4 days</option>
+            <option value="7" selected>Full week</option>
+          </select>
+          <span class="hint">Days of event series coverage to include in the morning digest.</span>
+        </div>
       </div>
 
       <hr class="divider">
@@ -285,6 +304,8 @@
     document.getElementById('bundle-window').value = '10';
     document.getElementById('precision').value = '0';
     document.getElementById('digest-time').value = '08:00';
+    document.getElementById('digest-team-days').value = '1';
+    document.getElementById('digest-event-days').value = '7';
     document.getElementById('gt-type').value = 'thumb';
     document.getElementById('gt-style').value = '1';
     document.getElementById('gt-aspect').value = '16-9';
@@ -336,6 +357,8 @@
     if (data.lead_time_minutes != null) document.getElementById('lead-time').value = String(data.lead_time_minutes);
     if (data.precision_minutes != null) document.getElementById('precision').value = String(data.precision_minutes);
     if (data.digest_time) document.getElementById('digest-time').value = data.digest_time;
+    if (data.digest_team_days != null) document.getElementById('digest-team-days').value = String(data.digest_team_days);
+    if (data.digest_event_days != null) document.getElementById('digest-event-days').value = String(data.digest_event_days);
     if (data.bundle_window_minutes != null) document.getElementById('bundle-window').value = String(data.bundle_window_minutes);
 
     // Content overrides (only check fields explicitly set)
@@ -383,6 +406,8 @@
       lead_time_minutes: parseInt(document.getElementById('lead-time').value),
       precision_minutes: parseInt(document.getElementById('precision').value),
       digest_time: document.getElementById('digest-time').value,
+      digest_team_days: parseInt(document.getElementById('digest-team-days').value),
+      digest_event_days: parseInt(document.getElementById('digest-event-days').value),
       bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
       auto_record: false,
       notification_template,

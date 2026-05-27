@@ -113,6 +113,8 @@ class Endpoint:
     lead_time_minutes: int = 30
     precision_minutes: int = 0  # 0 = exact
     digest_time: str = "08:00"
+    digest_team_days: int = 1
+    digest_event_days: int = 7
     bundle_window_minutes: int = 10
     auto_record: bool = False
     content_defaults: ContentDefaults = field(default_factory=ContentDefaults)

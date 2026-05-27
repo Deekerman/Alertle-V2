@@ -168,7 +168,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 scheduler.schedule_game(match, sub, ep)
                 scheduled_count += 1
                 if "digest" in ep.modes:
-                    digest_matches.setdefault(ep.id, []).append((match, sub))
+                    days_from_now = (game.start_time.date() - now.date()).days
+                    if days_from_now < ep.digest_team_days:
+                        digest_matches.setdefault(ep.id, []).append((match, sub))
 
             games_seen.add(game.id)
 
@@ -319,7 +321,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                         })
                     scheduled_count += 1
                     if "digest" in ep.modes:
-                        digest_matches.setdefault(ep.id, []).append((match, sub))
+                        days_from_now = (match.game.start_time.date() - now.date()).days
+                        if days_from_now < ep.digest_event_days:
+                            digest_matches.setdefault(ep.id, []).append((match, sub))
 
                 if sub.standings_alert and event and today_has_coverage:
                     standings_scheduled = True
