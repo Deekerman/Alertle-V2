@@ -189,7 +189,11 @@ Default template:
 | Basketball | NBA, WNBA, NCAA Men's, NCAA Women's |
 | Baseball | MLB |
 | Hockey | NHL |
-| Soccer | EPL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Champions League, Europa League, Conference League, NWSL |
+| Soccer — England | Premier League, EFL Championship, EFL League One, EFL League Two, FA Cup, EFL Cup |
+| Soccer — Scotland | Scottish Premiership |
+| Soccer — Europe | La Liga, Bundesliga, Serie A, Ligue 1 |
+| Soccer — Americas | MLS, NWSL |
+| Soccer — Competitions | Champions League, Europa League, Conference League, FIFA World Cup, FIFA Women's World Cup |
 
 **Event Series**
 | Sport | Leagues |

@@ -33,17 +33,29 @@ SUPPORTED_LEAGUES: list[tuple[str, str, str]] = [
     ("baseball",   "mlb",                    "MLB"),
     ("hockey",     "nhl",                    "NHL"),
     ("football",   "ufl",                    "UFL"),
-    # Soccer
+    # Soccer — England
     ("soccer",     "eng.1",                  "English Premier League"),
+    ("soccer",     "eng.2",                  "EFL Championship"),
+    ("soccer",     "eng.3",                  "EFL League One"),
+    ("soccer",     "eng.4",                  "EFL League Two"),
+    ("soccer",     "eng.fa_cup",             "FA Cup"),
+    ("soccer",     "eng.league_cup",         "EFL Cup"),
+    # Soccer — Scotland
+    ("soccer",     "sco.1",                  "Scottish Premiership"),
+    # Soccer — Europe
     ("soccer",     "esp.1",                  "La Liga"),
     ("soccer",     "ger.1",                  "Bundesliga"),
     ("soccer",     "ita.1",                  "Serie A"),
     ("soccer",     "fra.1",                  "Ligue 1"),
+    # Soccer — Americas
     ("soccer",     "usa.1",                  "MLS"),
+    ("soccer",     "nwsl",                   "NWSL"),
+    # Soccer — UEFA & FIFA
     ("soccer",     "uefa.champions",         "UEFA Champions League"),
     ("soccer",     "uefa.europa",            "UEFA Europa League"),
     ("soccer",     "uefa.conference",        "UEFA Conference League"),
-    ("soccer",     "nwsl",                   "NWSL"),
+    ("soccer",     "fifa.world",             "FIFA World Cup"),
+    ("soccer",     "fifa.wwc",               "FIFA Women's World Cup"),
 ]
 
 # Event-series sports: no home/away teams, just events (tournaments, races, cards)
