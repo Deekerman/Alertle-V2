@@ -233,6 +233,14 @@ class AlertScheduler:
         if delay > 0:
             await asyncio.sleep(delay)
 
+        # Guard: alert may have been pruned from the DB while we were sleeping
+        row = self._conn.execute(
+            "SELECT sent FROM scheduled_alerts WHERE id=?", (alert.id,)
+        ).fetchone()
+        if not row or row[0]:
+            self._tasks.pop(alert.id, None)
+            return
+
         raw = cfg_module.load_config()
         tz_name = cfg_module.get_timezone(raw)
         endpoint = cfg_module.get_endpoint_by_id(alert.endpoint_id, raw)
@@ -536,6 +544,49 @@ class AlertScheduler:
                 )
         self._conn.commit()
 
+    def prune_orphaned_team_alerts(
+        self,
+        scheduled_pairs: set[tuple[str, str]],  # (game_id, endpoint_id)
+    ) -> None:
+        """Remove unsent regular-game alerts whose (game_id, endpoint_id) was not
+        produced by the current scan. Only prunes alerts for endpoints that
+        participated in the scan, so endpoints with no subscriptions are untouched.
+        """
+        if not scheduled_pairs:
+            return
+
+        active_endpoints = {ep_id for _, ep_id in scheduled_pairs}
+
+        rows = self._conn.execute(
+            "SELECT id, game_id, endpoint_id FROM scheduled_alerts "
+            "WHERE sent=0 AND game_id NOT LIKE 'event:%' "
+            "AND mode NOT IN ('digest', 'standings')"
+        ).fetchall()
+
+        to_delete = []
+        for alert_id, game_id, endpoint_id in rows:
+            if endpoint_id not in active_endpoints:
+                continue  # endpoint wasn't part of this scan — leave it alone
+            if (game_id, endpoint_id) not in scheduled_pairs:
+                to_delete.append(alert_id)
+
+        if not to_delete:
+            return
+
+        self._conn.executemany(
+            "DELETE FROM scheduled_alerts WHERE id=?",
+            [(aid,) for aid in to_delete],
+        )
+        self._conn.commit()
+
+        # Cancel in-memory tasks so sleeping tasks don't fire after being pruned
+        for alert_id in to_delete:
+            task = self._tasks.pop(alert_id, None)
+            if task:
+                task.cancel()
+
+        log.info("Pruned %d orphaned team game alerts", len(to_delete))
+
     def list_pending(self) -> list[dict]:
         """Return serializable pending alerts sorted by fire time — used by the dashboard."""
         result = []
@@ -637,7 +688,9 @@ def _serialise_match(match: GameMatch) -> str:
             "status": g.status,
             "home_score": g.home_score, "away_score": g.away_score,
             "broadcast_networks": g.broadcast_networks,
-            "odds_spread": g.odds_spread, "odds_over_under": g.odds_over_under,
+            "odds_spread": g.odds_spread,
+            "odds_home_spread": g.odds_home_spread, "odds_away_spread": g.odds_away_spread,
+            "odds_over_under": g.odds_over_under,
             "odds_home_ml": g.odds_home_ml, "odds_away_ml": g.odds_away_ml,
             "series_summary": g.series_summary, "season_context": g.season_context,
             "winner_abbrev": g.winner_abbrev,
@@ -673,7 +726,10 @@ def _deserialise_match(json_str: str) -> GameMatch:
         status=g.get("status", "scheduled"),
         home_score=g.get("home_score"), away_score=g.get("away_score"),
         broadcast_networks=g.get("broadcast_networks", []),
-        odds_spread=g.get("odds_spread", ""), odds_over_under=g.get("odds_over_under", ""),
+        odds_spread=g.get("odds_spread", ""),
+        odds_home_spread=g.get("odds_home_spread", ""),
+        odds_away_spread=g.get("odds_away_spread", ""),
+        odds_over_under=g.get("odds_over_under", ""),
         odds_home_ml=g.get("odds_home_ml", g.get("odds_moneyline", "")),
         odds_away_ml=g.get("odds_away_ml", ""),
         series_summary=g.get("series_summary", ""), season_context=g.get("season_context", ""),

@@ -205,10 +205,12 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
 
         # Spread: prefer structured pointSpread.home.close.line (reliable across sports).
         # ESPN puts the moneyline in details for hockey, so details alone is unreliable.
-        ps_line = odds.get("pointSpread", {}).get("home", {}).get("close", {}).get("line", "")
-        if ps_line:
+        ps = odds.get("pointSpread", {})
+        ps_home_line = ps.get("home", {}).get("close", {}).get("line", "")
+        ps_away_line = ps.get("away", {}).get("close", {}).get("line", "")
+        if ps_home_line:
             home_abbrev = home.get("team", {}).get("abbreviation", "")
-            spread = f"{home_abbrev} {ps_line}" if home_abbrev else ps_line
+            spread = f"{home_abbrev} {ps_home_line}" if home_abbrev else ps_home_line
         else:
             spread = odds.get("details", "")
 
@@ -239,6 +241,8 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
             away_score=away_score,
             broadcast_networks=broadcasts,
             odds_spread=spread,
+            odds_home_spread=ps_home_line,
+            odds_away_spread=ps_away_line,
             odds_over_under=over_under,
             odds_home_ml=home_ml,
             odds_away_ml=away_ml,

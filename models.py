@@ -42,6 +42,8 @@ class ESPNGame:
     away_score: Optional[int] = None
     broadcast_networks: list[str] = field(default_factory=list)
     odds_spread: str = ""
+    odds_home_spread: str = ""
+    odds_away_spread: str = ""
     odds_over_under: str = ""
     odds_home_ml: str = ""
     odds_away_ml: str = ""
