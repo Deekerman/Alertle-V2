@@ -248,7 +248,7 @@ Default template:
 | MMA | UFC |
 | Tennis | ATP Tour, WTA Tour |
 
-## Powered By
+## A HUGE Thank you to:
 
 <table>
 <tr>
