@@ -128,6 +128,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     scheduled_count = 0
     no_channel_count = 0
     games_seen: set[str] = set()
+    scheduled_pairs: set[tuple[str, str]] = set()  # (game_id, endpoint_id)
     digest_matches: dict[str, list[tuple[GameMatch, Subscription]]] = {}
 
     for sub in subs:
@@ -166,6 +167,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 if ep.id not in endpoint_ids:
                     continue
                 scheduler.schedule_game(match, sub, ep)
+                scheduled_pairs.add((game.id, ep.id))
                 scheduled_count += 1
                 if "digest" in ep.modes:
                     days_from_now = (game.start_time.date() - now.date()).days
@@ -173,6 +175,9 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                         digest_matches.setdefault(ep.id, []).append((match, sub))
 
             games_seen.add(game.id)
+
+    # Prune team game alerts for subscriptions that were removed since the last scan.
+    scheduler.prune_orphaned_team_alerts(scheduled_pairs)
 
     # ── Event Series ──────────────────────────────────────────────────────────
     tz_name = cfg_module.get_timezone(raw)
