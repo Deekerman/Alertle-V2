@@ -200,22 +200,24 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
         # odds
         odds_list = competition.get("odds", [{}])
         odds = odds_list[0] if odds_list else {}
-        spread = odds.get("details", "")
         _ou = odds.get("overUnder")
         over_under = str(_ou) if _ou not in (None, "") else ""
 
-        def _fmt_ml(val) -> str:
-            if val is None or val == "":
-                return ""
-            try:
-                n = int(val)
-                return f"+{n}" if n > 0 else str(n)
-            except (ValueError, TypeError):
-                return str(val)
+        # Spread: prefer structured pointSpread.home.close.line (reliable across sports).
+        # ESPN puts the moneyline in details for hockey, so details alone is unreliable.
+        ps_line = odds.get("pointSpread", {}).get("home", {}).get("close", {}).get("line", "")
+        if ps_line:
+            home_abbrev = home.get("team", {}).get("abbreviation", "")
+            spread = f"{home_abbrev} {ps_line}" if home_abbrev else ps_line
+        else:
+            spread = odds.get("details", "")
 
-        log.debug("ESPN odds raw (%s): %s", event.get("id"), odds)
-        home_ml = _fmt_ml(odds.get("homeTeamOdds", {}).get("moneyLine", ""))
-        away_ml = _fmt_ml(odds.get("awayTeamOdds", {}).get("moneyLine", ""))
+        # Moneyline: ESPN nests this under odds["moneyline"]["home/away"]["close"]["odds"]
+        ml = odds.get("moneyline", {})
+        home_ml = (ml.get("home", {}).get("close", {}).get("odds", "")
+                   or ml.get("home", {}).get("open", {}).get("odds", ""))
+        away_ml = (ml.get("away", {}).get("close", {}).get("odds", "")
+                   or ml.get("away", {}).get("open", {}).get("odds", ""))
 
         # series / season notes
         series_summary = competition.get("series", {}).get("summary", "")
