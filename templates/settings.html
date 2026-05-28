@@ -40,9 +40,10 @@
                 placeholder="{time}&#10;📺 {channels}&#10;📍 {venue}&#10;{context}&#10;{odds}&#10;{score}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
       <span class="hint">
         Available variables: <code>{time}</code> <code>{channels}</code> <code>{broadcast}</code>
-        <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{score}</code>
-        <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code> <code>{away_abbrev}</code>
-        <code>{league}</code> <code>{sport}</code>
+        <code>{venue}</code> <code>{context}</code> <code>{odds}</code> <code>{odds_spread}</code>
+        <code>{odds_ou}</code> <code>{odds_home_ml}</code> <code>{odds_away_ml}</code>
+        <code>{score}</code> <code>{home}</code> <code>{away}</code> <code>{home_abbrev}</code>
+        <code>{away_abbrev}</code> <code>{league}</code> <code>{sport}</code>
       </span>
       <span class="hint">Leave empty to use default: time, channels, venue, context, odds, score</span>
     </div>
