@@ -213,6 +213,7 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
             except (ValueError, TypeError):
                 return str(val)
 
+        log.debug("ESPN odds raw (%s): %s", event.get("id"), odds)
         home_ml = _fmt_ml(odds.get("homeTeamOdds", {}).get("moneyLine", ""))
         away_ml = _fmt_ml(odds.get("awayTeamOdds", {}).get("moneyLine", ""))
 
