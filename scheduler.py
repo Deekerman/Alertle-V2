@@ -638,7 +638,7 @@ def _serialise_match(match: GameMatch) -> str:
             "home_score": g.home_score, "away_score": g.away_score,
             "broadcast_networks": g.broadcast_networks,
             "odds_spread": g.odds_spread, "odds_over_under": g.odds_over_under,
-            "odds_moneyline": g.odds_moneyline,
+            "odds_home_ml": g.odds_home_ml, "odds_away_ml": g.odds_away_ml,
             "series_summary": g.series_summary, "season_context": g.season_context,
             "winner_abbrev": g.winner_abbrev,
             "home_team": _team_dict(g.home_team),
@@ -674,7 +674,8 @@ def _deserialise_match(json_str: str) -> GameMatch:
         home_score=g.get("home_score"), away_score=g.get("away_score"),
         broadcast_networks=g.get("broadcast_networks", []),
         odds_spread=g.get("odds_spread", ""), odds_over_under=g.get("odds_over_under", ""),
-        odds_moneyline=g.get("odds_moneyline", ""),
+        odds_home_ml=g.get("odds_home_ml", g.get("odds_moneyline", "")),
+        odds_away_ml=g.get("odds_away_ml", ""),
         series_summary=g.get("series_summary", ""), season_context=g.get("season_context", ""),
         winner_abbrev=g.get("winner_abbrev", ""),
     )
