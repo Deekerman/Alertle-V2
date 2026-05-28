@@ -1,18 +1,17 @@
-version: "3.8"
-
 services:
   alertle-v2:
     image: ghcr.io/deekerman/alertle-v2:latest
-    build: .          # optional: remove this line to always pull from GHCR
     container_name: alertle-v2
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      TZ: America/Toronto
+      ALERTLE_CONFIG: /config/config.yaml
     ports:
       - "8888:8888"
     volumes:
-      - ./config.yaml:/config/config.yaml
+      - ./alertle-v2/config.yaml:/config/config.yaml
       - alertle_data:/app/data
-    environment:
-      - ALERTLE_CONFIG=/config/config.yaml
-    restart: unless-stopped
 
 volumes:
   alertle_data:

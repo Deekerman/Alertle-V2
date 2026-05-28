@@ -17,13 +17,19 @@ CONFIG_PATH = Path(os.environ.get("ALERTLE_CONFIG", "config.yaml"))
 
 
 def _load_raw() -> dict:
-    if not CONFIG_PATH.exists():
+    if not CONFIG_PATH.exists() or CONFIG_PATH.is_dir():
         return {}
     with CONFIG_PATH.open() as f:
         return yaml.safe_load(f) or {}
 
 
 def _save_raw(data: dict) -> None:
+    if CONFIG_PATH.is_dir():
+        raise RuntimeError(
+            f"Config path '{CONFIG_PATH}' is a directory, not a file. "
+            "On the host, run: rm -rf ./alertle-v2/config.yaml && "
+            "curl -o alertle-v2/config.yaml <raw URL from README>"
+        )
     with CONFIG_PATH.open("w") as f:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 

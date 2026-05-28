@@ -20,24 +20,25 @@ from game_thumbs.builder import build_url, build_league_url
 
 _GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
 
-DEFAULT_TEMPLATE = """{time}
-📺 {channels}
-📍 {venue}
-{context}
-{odds}
+DEFAULT_TEMPLATE = """{description}
+{time}
+{venue}
+{channels}"""
+
+DEFAULT_GAME_SUMMARY_TEMPLATE = """{time}
 {score}"""
 
-DEFAULT_GAME_SUMMARY_TEMPLATE = """🏆 {score}
+DEFAULT_DIGEST_GAME_TEMPLATE = """{away} at {home}
+Game Start:
 {time}
-📺 {channels}
-{description}"""
+{context}
+Times & Channels
+{channels}"""
 
-DEFAULT_DIGEST_GAME_TEMPLATE = """{context}
+DEFAULT_DIGEST_EVENT_TEMPLATE = """{home}
+Event Start:
 {time}
-📺 {channels}"""
-
-DEFAULT_DIGEST_EVENT_TEMPLATE = """{context}
-{time}
+Times & Channels:
 {channels}"""
 
 
