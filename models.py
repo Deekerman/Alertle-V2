@@ -43,7 +43,8 @@ class ESPNGame:
     broadcast_networks: list[str] = field(default_factory=list)
     odds_spread: str = ""
     odds_over_under: str = ""
-    odds_moneyline: str = ""
+    odds_home_ml: str = ""
+    odds_away_ml: str = ""
     series_summary: str = ""        # "Series tied 2-2"
     season_context: str = ""        # "Week 14" / "Matchday 22"
     winner_abbrev: str = ""         # set when status == final

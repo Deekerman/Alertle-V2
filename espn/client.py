@@ -201,8 +201,20 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
         odds_list = competition.get("odds", [{}])
         odds = odds_list[0] if odds_list else {}
         spread = odds.get("details", "")
-        over_under = str(odds.get("overUnder", ""))
-        moneyline_home = str(odds.get("homeTeamOdds", {}).get("moneyLine", ""))
+        _ou = odds.get("overUnder")
+        over_under = str(_ou) if _ou not in (None, "") else ""
+
+        def _fmt_ml(val) -> str:
+            if val is None or val == "":
+                return ""
+            try:
+                n = int(val)
+                return f"+{n}" if n > 0 else str(n)
+            except (ValueError, TypeError):
+                return str(val)
+
+        home_ml = _fmt_ml(odds.get("homeTeamOdds", {}).get("moneyLine", ""))
+        away_ml = _fmt_ml(odds.get("awayTeamOdds", {}).get("moneyLine", ""))
 
         # series / season notes
         series_summary = competition.get("series", {}).get("summary", "")
@@ -225,7 +237,8 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
             broadcast_networks=broadcasts,
             odds_spread=spread,
             odds_over_under=over_under,
-            odds_moneyline=moneyline_home,
+            odds_home_ml=home_ml,
+            odds_away_ml=away_ml,
             series_summary=series_summary,
             season_context=season_context,
             winner_abbrev=winner_abbrev,
