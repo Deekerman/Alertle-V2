@@ -13,6 +13,9 @@ from notifiers.base import build_digest_lines, build_game_lines
 
 log = logging.getLogger(__name__)
 
+_GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
+_color_cache: dict[str, int] = {}
+
 SPORT_EMOJI = {
     "hockey": "🏒", "basketball": "🏀", "football": "🏈",
     "baseball": "⚾", "soccer": "⚽", "default": "🏟️",
@@ -32,12 +35,34 @@ def _colour_for_sport(sport: str) -> int:
     return colours.get(sport.lower(), 0x5865F2)
 
 
-def _build_single_embed(lines: dict, sport: str) -> dict:
+async def _fetch_winner_color(base_url: str, league: str, winner_abbrev: str) -> int | None:
+    """Fetch the winner's primary brand color from the game-thumbs /raw endpoint."""
+    from game_thumbs.builder import _to_slug
+    slug = _to_slug(winner_abbrev)
+    cache_key = f"{league}:{slug}"
+    if cache_key in _color_cache:
+        return _color_cache[cache_key]
+    url = f"{base_url.rstrip('/')}/{league.lower()}/{slug}/raw"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                hex_color = r.json().get("color", "")
+                if hex_color:
+                    color = int(hex_color.lstrip("#"), 16)
+                    _color_cache[cache_key] = color
+                    return color
+    except Exception as e:
+        log.debug("Failed to fetch winner color for %s/%s: %s", league, winner_abbrev, e)
+    return None
+
+
+def _build_single_embed(lines: dict, sport: str, color: int | None = None) -> dict:
     emoji = _sport_emoji(sport)
     embed: dict[str, Any] = {
         "title": f"{emoji} {lines['title']}",
         "description": lines["rendered"] or lines["time"],
-        "color": _colour_for_sport(sport),
+        "color": color if color is not None else _colour_for_sport(sport),
     }
     if lines["thumb_url"]:
         embed["image"] = {"url": lines["thumb_url"]}
@@ -53,7 +78,20 @@ async def send_single(
     winner_abbrev: str = "",
 ) -> bool:
     lines = build_game_lines(match, endpoint, sub, tz_name, mode, winner_abbrev)
-    embed = _build_single_embed(lines, match.game.sport)
+
+    color: int | None = None
+    if winner_abbrev:
+        try:
+            import config as cfg_module
+            raw_cfg = cfg_module.load_config()
+            gt = cfg_module.get_game_thumbs(raw_cfg)
+            if not gt or gt.get("enabled", True):
+                base_url = gt.get("base_url", _GAME_THUMBS_DEFAULT) if gt else _GAME_THUMBS_DEFAULT
+                color = await _fetch_winner_color(base_url, match.game.league, winner_abbrev)
+        except Exception as e:
+            log.debug("Winner color lookup failed: %s", e)
+
+    embed = _build_single_embed(lines, match.game.sport, color)
     return await _post_webhook(endpoint._raw.get("webhook_url", ""), {"embeds": [embed]})
 
 
