@@ -191,30 +191,33 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
         venue_city = venue_data.get("address", {}).get("city", "")
 
         # broadcasts
-        broadcasts = [
-            b.get("names", [""])[0]
-            for b in competition.get("broadcasts", [])
-            if b.get("names")
-        ]
+        broadcasts = []
+        for b in competition.get("broadcasts", []):
+            name = (b.get("names") or [""])[0] or b.get("media", {}).get("shortName", "")
+            if name:
+                broadcasts.append(name)
 
         # odds
         odds_list = competition.get("odds", [{}])
         odds = odds_list[0] if odds_list else {}
-        spread = odds.get("details", "")
         _ou = odds.get("overUnder")
         over_under = str(_ou) if _ou not in (None, "") else ""
 
-        def _fmt_ml(val) -> str:
-            if val is None or val == "":
-                return ""
-            try:
-                n = int(val)
-                return f"+{n}" if n > 0 else str(n)
-            except (ValueError, TypeError):
-                return str(val)
+        # Spread: prefer structured pointSpread.home.close.line (reliable across sports).
+        # ESPN puts the moneyline in details for hockey, so details alone is unreliable.
+        ps_line = odds.get("pointSpread", {}).get("home", {}).get("close", {}).get("line", "")
+        if ps_line:
+            home_abbrev = home.get("team", {}).get("abbreviation", "")
+            spread = f"{home_abbrev} {ps_line}" if home_abbrev else ps_line
+        else:
+            spread = odds.get("details", "")
 
-        home_ml = _fmt_ml(odds.get("homeTeamOdds", {}).get("moneyLine", ""))
-        away_ml = _fmt_ml(odds.get("awayTeamOdds", {}).get("moneyLine", ""))
+        # Moneyline: ESPN nests this under odds["moneyline"]["home/away"]["close"]["odds"]
+        ml = odds.get("moneyline", {})
+        home_ml = (ml.get("home", {}).get("close", {}).get("odds", "")
+                   or ml.get("home", {}).get("open", {}).get("odds", ""))
+        away_ml = (ml.get("away", {}).get("close", {}).get("odds", "")
+                   or ml.get("away", {}).get("open", {}).get("odds", ""))
 
         # series / season notes
         series_summary = competition.get("series", {}).get("summary", "")
