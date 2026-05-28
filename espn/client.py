@@ -191,11 +191,11 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
         venue_city = venue_data.get("address", {}).get("city", "")
 
         # broadcasts
-        broadcasts = [
-            b.get("names", [""])[0]
-            for b in competition.get("broadcasts", [])
-            if b.get("names")
-        ]
+        broadcasts = []
+        for b in competition.get("broadcasts", []):
+            name = (b.get("names") or [""])[0] or b.get("media", {}).get("shortName", "")
+            if name:
+                broadcasts.append(name)
 
         # odds
         odds_list = competition.get("odds", [{}])
