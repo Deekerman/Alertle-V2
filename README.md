@@ -38,7 +38,7 @@ services:
     ports:
       - 8888:8888
     volumes:
-      - ./alertle-v2/config.yaml:/config/config.yaml
+      - ./alertle-v2:/config
       - alertle_data:/app/data
 volumes:
   alertle_data: null
