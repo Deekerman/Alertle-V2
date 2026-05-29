@@ -64,8 +64,12 @@ async def index(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
+    import os
     raw = cfg_module.load_config()
-    return templates.TemplateResponse(request, "settings.html", {"cfg": raw})
+    return templates.TemplateResponse(request, "settings.html", {
+        "cfg": raw,
+        "tz_default": os.environ.get("TZ", "UTC"),
+    })
 
 
 @app.get("/subscriptions", response_class=HTMLResponse)

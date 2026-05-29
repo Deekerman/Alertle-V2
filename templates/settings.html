@@ -13,7 +13,7 @@
     <div class="form-row">
       <label for="timezone">Timezone</label>
       <input type="text" id="timezone" name="timezone"
-             value="{{ cfg.get('settings', {}).get('timezone', 'UTC') }}"
+             value="{{ cfg.get('settings', {}).get('timezone', '') or tz_default }}"
              placeholder="e.g. America/Toronto">
       <span class="hint">IANA timezone name — all alert times are shown in this zone</span>
     </div>
