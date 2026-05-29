@@ -50,7 +50,9 @@ def get_settings(raw: dict | None = None) -> dict:
 
 
 def get_timezone(raw: dict | None = None) -> str:
-    return get_settings(raw).get("timezone", "UTC")
+    import os
+    saved = get_settings(raw).get("timezone", "")
+    return saved or os.environ.get("TZ", "UTC")
 
 
 def get_scan_time(raw: dict | None = None) -> str:
