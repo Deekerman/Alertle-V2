@@ -243,14 +243,19 @@
     const data = new FormData(form);
     try {
       const res = await apiFetch('/api/settings', { method: 'POST', body: data });
+      const el = document.getElementById('settings-saved');
       if (res.ok) {
-        const el = document.getElementById('settings-saved');
         el.className = 'inline-status text-green';
         el.textContent = '✅ Saved';
         setTimeout(() => { el.className = 'inline-status hidden'; }, 3000);
+      } else {
+        el.className = 'inline-status text-red';
+        el.textContent = '❌ ' + (res.error || 'Save failed');
       }
     } catch(e) {
-      alert('Save failed: ' + e.message);
+      const el = document.getElementById('settings-saved');
+      el.className = 'inline-status text-red';
+      el.textContent = '❌ ' + e.message;
     }
   }
 

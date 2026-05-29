@@ -151,7 +151,11 @@ async def save_settings(request: Request):
     else:
         raw["notification_defaults"].pop("digest_event_template", None)
 
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
@@ -201,7 +205,11 @@ async def save_endpoint(request: Request):
     # Replace by id — handles both create and edit
     raw["endpoints"] = [e for e in raw["endpoints"] if e.get("id") != data.get("id")]
     raw["endpoints"].append(data)
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
@@ -209,7 +217,11 @@ async def save_endpoint(request: Request):
 async def delete_endpoint(endpoint_id: str):
     raw = cfg_module.load_config()
     raw["endpoints"] = [e for e in raw.get("endpoints", []) if e.get("id") != endpoint_id]
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
@@ -223,7 +235,11 @@ async def save_subscription(request: Request):
     # Use label as key — replace if exists
     raw["subscriptions"] = [s for s in raw["subscriptions"] if s.get("label") != data.get("label")]
     raw["subscriptions"].append(data)
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
@@ -232,7 +248,11 @@ async def delete_subscription(label: str):
     raw = cfg_module.load_config()
     deleted = [s for s in raw.get("subscriptions", []) if s.get("label") == label]
     raw["subscriptions"] = [s for s in raw.get("subscriptions", []) if s.get("label") != label]
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     if scheduler:
         for s in deleted:
             if s.get("scope") == "event_series":
@@ -262,7 +282,11 @@ async def add_epg_source(request: Request):
     # Replace by name
     raw["epg_sources"] = [s for s in raw["epg_sources"] if s.get("name") != name]
     raw["epg_sources"].append({"name": name, "url": url})
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
@@ -270,7 +294,11 @@ async def add_epg_source(request: Request):
 async def delete_epg_source(name: str):
     raw = cfg_module.load_config()
     raw["epg_sources"] = [s for s in raw.get("epg_sources", []) if s.get("name") != name]
-    cfg_module.save_config(raw)
+    try:
+        cfg_module.save_config(raw)
+    except Exception as e:
+        log.error("Config save failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)})
     return JSONResponse({"ok": True})
 
 
