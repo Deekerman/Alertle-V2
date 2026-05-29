@@ -234,10 +234,10 @@ async def delete_endpoint(endpoint_id: str):
 @app.post("/api/subscriptions")
 async def save_subscription(request: Request):
     data = await request.json()
+    original_label = data.pop("original_label", None) or data.get("label")
     raw = cfg_module.load_config()
     raw.setdefault("subscriptions", [])
-    # Use label as key — replace if exists
-    raw["subscriptions"] = [s for s in raw["subscriptions"] if s.get("label") != data.get("label")]
+    raw["subscriptions"] = [s for s in raw["subscriptions"] if s.get("label") != original_label]
     raw["subscriptions"].append(data)
     try:
         cfg_module.save_config(raw)

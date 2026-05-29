@@ -108,7 +108,8 @@
       <div class="form-row">
         <label for="sub-label">Label</label>
         <input type="text" id="sub-label" placeholder="e.g. Toronto Maple Leafs" required>
-        <span class="hint">A friendly name — auto-filled when you pick a league or team</span>
+        <span id="sub-label-error" class="hint" style="color:var(--red);display:none"></span>
+      <span class="hint">A friendly name — auto-filled when you pick a league or team</span>
       </div>
 
       <div class="form-row">
@@ -140,6 +141,8 @@
 <script>
   // League list loaded from API; includes is_event_series flag
   let leagueData = [];
+  const _existingSubLabels = new Set({{ subscriptions | map(attribute='label') | list | tojson }});
+  let _editingSubLabel = null;  // null = add mode; string = original label in edit mode
 
   async function init() {
     const leagues = await apiFetch('/api/espn/leagues');
@@ -167,6 +170,21 @@
     sel.appendChild(eventGroup);
   }
 
+  async function loadTeamsForCurrentLeague() {
+    const sel = document.getElementById('sub-league');
+    if (!sel.value) return;
+    const {sport, league} = JSON.parse(sel.value);
+    const teamSel = document.getElementById('sub-team');
+    teamSel.innerHTML = '<option value="">Select a team…</option>';
+    const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`);
+    teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(t);
+      opt.textContent = t.name;
+      teamSel.appendChild(opt);
+    });
+  }
+
   async function onLeagueChange() {
     const sel = document.getElementById('sub-league');
     const teamSel = document.getElementById('sub-team');
@@ -185,7 +203,6 @@
       scopeRow.classList.add('hidden');
       teamRow.classList.add('hidden');
       standingsRow.classList.remove('hidden');
-      // Set label to league name
       const leagueObj = leagueData.find(l => l.sport === sport && l.league === league);
       if (leagueObj) document.getElementById('sub-label').value = leagueObj.label;
     } else {
@@ -199,21 +216,18 @@
       }
       if (scope === 'team') {
         teamRow.classList.remove('hidden');
-        const teams = await apiFetch(`/api/espn/teams/${sport}/${league}`);
-        teams.forEach(t => {
-          const opt = document.createElement('option');
-          opt.value = JSON.stringify(t);
-          opt.textContent = t.name;
-          teamSel.appendChild(opt);
-        });
+        await loadTeamsForCurrentLeague();
       }
     }
   }
 
-  function onScopeChange() {
+  async function onScopeChange() {
     const scope = document.querySelector('input[name="scope"]:checked').value;
     document.getElementById('team-row').classList.toggle('hidden', scope !== 'team');
-    if (scope !== 'team') {
+    if (scope === 'team') {
+      await loadTeamsForCurrentLeague();
+    } else {
+      document.getElementById('sub-team').innerHTML = '<option value="">Select a team…</option>';
       const sel = document.getElementById('sub-league');
       if (sel.value) {
         const parsed = JSON.parse(sel.value);
@@ -238,6 +252,17 @@
 
     const label = document.getElementById('sub-label').value.trim();
     if (!label) { alert('Please enter a label.'); return; }
+
+    const errEl = document.getElementById('sub-label-error');
+    const isDuplicate = _editingSubLabel === null
+      ? _existingSubLabels.has(label)
+      : (label !== _editingSubLabel && _existingSubLabels.has(label));
+    if (isDuplicate) {
+      errEl.textContent = 'A subscription named "' + label + '" already exists.';
+      errEl.style.display = '';
+      return;
+    }
+    errEl.style.display = 'none';
 
     let scope, teamId = null, teamName = null, teamAbbrev = null, standingsAlert = false;
 
@@ -267,6 +292,9 @@
       content_overrides: {},
       endpoints,
     };
+    if (_editingSubLabel !== null && _editingSubLabel !== label) {
+      payload.original_label = _editingSubLabel;
+    }
 
     try {
       await apiFetch('/api/subscriptions', {
@@ -287,10 +315,13 @@
   }
 
   function resetSubForm() {
+    _editingSubLabel = null;
     document.getElementById('sub-modal-title').textContent = 'Add Subscription';
     document.getElementById('sub-submit-btn').textContent = 'Add Subscription';
     document.getElementById('sub-label').value = '';
     document.getElementById('sub-label').readOnly = false;
+    const errEl = document.getElementById('sub-label-error');
+    errEl.textContent = ''; errEl.style.display = 'none';
     document.getElementById('sub-league').value = '';
     document.getElementById('sub-team').innerHTML = '<option value="">Select a team…</option>';
     document.querySelectorAll('input[name="endpoints"]').forEach(cb => cb.checked = false);
@@ -306,10 +337,9 @@
     document.getElementById('sub-modal-title').textContent = 'Edit Subscription';
     document.getElementById('sub-submit-btn').textContent = 'Save Changes';
 
-    // Label is the key — make read-only so the update replaces the right record
+    _editingSubLabel = data.label;
     const labelEl = document.getElementById('sub-label');
     labelEl.value = data.label;
-    labelEl.readOnly = true;
 
     // Pre-check endpoints
     document.querySelectorAll('input[name="endpoints"]').forEach(cb => {
