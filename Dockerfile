@@ -11,7 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN chmod +x /app/entrypoint.sh
+
 ENV ALERTLE_CONFIG=/config/config.yaml
 EXPOSE 8888
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8888"]
+ENTRYPOINT ["/app/entrypoint.sh"]
