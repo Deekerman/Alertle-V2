@@ -45,6 +45,8 @@ volumes:
 networks: {}
 ```
 
+Unsure if this is still required.
+
 ```bash
 # Create the config directory and grab the example config
 mkdir -p alertle-v2
