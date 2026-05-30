@@ -137,6 +137,12 @@ async def save_settings(request: Request):
     else:
         raw["notification_defaults"].pop("template", None)
 
+    lt_template = (form.get("lead_time_template") or "").strip()
+    if lt_template:
+        raw["notification_defaults"]["lead_time_template"] = lt_template
+    else:
+        raw["notification_defaults"].pop("lead_time_template", None)
+
     gs_template = (form.get("game_summary_template") or "").strip()
     if gs_template:
         raw["notification_defaults"]["game_summary_template"] = gs_template
