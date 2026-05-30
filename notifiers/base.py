@@ -28,6 +28,8 @@ DEFAULT_TEMPLATE = """{description}
 DEFAULT_GAME_SUMMARY_TEMPLATE = """{time}
 {score}"""
 
+DEFAULT_LEAD_TIME_TEMPLATE = DEFAULT_TEMPLATE
+
 DEFAULT_DIGEST_GAME_TEMPLATE = """{away} at {home}
 Game Start:
 {time}
@@ -86,6 +88,28 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
             return d_t
         log.debug("Template source: built-in DEFAULT_DIGEST_EVENT_TEMPLATE for %s", endpoint.id)
         return DEFAULT_DIGEST_EVENT_TEMPLATE
+    elif mode == "lead_time":
+        ep_t = endpoint._raw.get("lead_time_template", "")
+        if ep_t:
+            log.debug("Template source: endpoint override (lead_time) for %s", endpoint.id)
+            return ep_t
+        import config as _cfg
+        nd = _cfg.load_config().get("notification_defaults", {})
+        lt_t = nd.get("lead_time_template", "")
+        if lt_t:
+            log.debug("Template source: global lead_time_template for %s", endpoint.id)
+            return lt_t
+        # Fall back to the shared notification_template before using the built-in default
+        ep_shared = endpoint._raw.get("notification_template", "")
+        if ep_shared:
+            log.debug("Template source: endpoint notification_template fallback (lead_time) for %s", endpoint.id)
+            return ep_shared
+        nd_shared = nd.get("template", "")
+        if nd_shared:
+            log.debug("Template source: global notification_defaults.template fallback (lead_time) for %s", endpoint.id)
+            return nd_shared
+        log.debug("Template source: built-in DEFAULT_LEAD_TIME_TEMPLATE for %s", endpoint.id)
+        return DEFAULT_LEAD_TIME_TEMPLATE
     else:
         ep_t = endpoint._raw.get("notification_template", "")
         if ep_t:

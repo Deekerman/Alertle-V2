@@ -208,6 +208,16 @@
         </span>
       </div>
       <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-lead-time-template">
+          Lead-Time Template
+          <span class="hint">(optional — overrides the global Lead-Time Template for this endpoint)</span>
+        </label>
+        <textarea id="ep-lead-time-template" rows="4"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use the global Lead-Time Template from Settings"></textarea>
+        <span class="hint">Same variables as Notification Template. Leave empty to use Settings default.</span>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
         <label for="ep-game-summary-template">
           Game Summary Template
           <span class="hint">(optional — used for Final Score notifications)</span>
@@ -342,6 +352,7 @@
     });
     // Clear notification templates
     document.getElementById('ep-notification-template').value = '';
+    document.getElementById('ep-lead-time-template').value = '';
     document.getElementById('ep-game-summary-template').value = '';
     document.getElementById('ep-digest-team-template').value = '';
     document.getElementById('ep-digest-event-template').value = '';
@@ -404,6 +415,7 @@
 
     // Notification templates
     document.getElementById('ep-notification-template').value = data.notification_template || '';
+    document.getElementById('ep-lead-time-template').value = data.lead_time_template || '';
     document.getElementById('ep-game-summary-template').value = data.game_summary_template || '';
     document.getElementById('ep-digest-team-template').value = data.digest_game_template || '';
     document.getElementById('ep-digest-event-template').value = data.digest_event_template || '';
@@ -426,6 +438,7 @@
     if (!modes.length) { alert('Select at least one notification mode.'); return; }
 
     const notification_template = document.getElementById('ep-notification-template').value.trim();
+    const lead_time_template = document.getElementById('ep-lead-time-template').value.trim();
     const game_summary_template = document.getElementById('ep-game-summary-template').value.trim();
     const digest_game_template = document.getElementById('ep-digest-team-template').value.trim();
     const digest_event_template = document.getElementById('ep-digest-event-template').value.trim();
@@ -442,6 +455,7 @@
       bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
       auto_record: false,
       notification_template,
+      lead_time_template,
       game_summary_template,
       digest_game_template,
       digest_event_template,

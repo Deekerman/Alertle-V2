@@ -49,6 +49,16 @@
       <span class="hint">Leave empty to use default: description, time, venue, channels</span>
     </div>
     <div class="form-row" style="margin-top:1rem">
+      <label for="lead_time_template">Lead-Time Template</label>
+      <textarea id="lead_time_template" name="lead_time_template" rows="5"
+                style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                placeholder="Leave empty to use Default Template above&#10;&#10;Example:&#10;{description}&#10;{time} · {venue}&#10;📺 {channels}&#10;{odds}">{{ cfg.get('notification_defaults', {}).get('lead_time_template', '') }}</textarea>
+      <span class="hint">
+        Used for lead-time reminder alerts only. Leave empty to fall back to the Default Template above.
+        Same variables available. Good place to add <code>{odds}</code> or <code>{broadcast}</code>.
+      </span>
+    </div>
+    <div class="form-row" style="margin-top:1rem">
       <label for="game_summary_template">Game Summary Template</label>
       <textarea id="game_summary_template" name="game_summary_template" rows="5"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
