@@ -45,17 +45,17 @@ EVENT_EXCLUDE_TERMS: dict[tuple[str, str], list[str]] = {
     ("golf", "pga"):  [
         # Studio / analysis shows
         "the cut", "inside the pga", "golf academy", "school of golf",
-        "golf central", "morning drive", "live from", "highlights",
+        "golf central", "morning drive", "live from", "highlight",
         "best of", "on the range", "the drop", "the return",
         # LPGA programs contain "lpga tour golf" which includes "pga tour" as a substring
         "lpga",
     ],
-    ("golf", "lpga"): ["highlights", "best of", "lpga tour golf academy"],
-    ("golf", "eur"):  ["highlights", "best of"],
-    ("racing", "f1"): ["highlights", "best of", "classic"],
-    ("mma",  "ufc"):  ["highlights", "best of", "embedded"],
-    ("tennis", "atp"): ["highlights", "best of"],
-    ("tennis", "wta"): ["highlights", "best of"],
+    ("golf", "lpga"): ["highlight", "best of", "lpga tour golf academy"],
+    ("golf", "eur"):  ["highlight", "best of"],
+    ("racing", "f1"): ["highlight", "best of", "classic"],
+    ("mma",  "ufc"):  ["highlight", "best of", "embedded"],
+    ("tennis", "atp"): ["highlight", "best of"],
+    ("tennis", "wta"): ["highlight", "best of"],
 }
 
 
