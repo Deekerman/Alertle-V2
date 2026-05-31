@@ -102,10 +102,13 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         # Enrich programs with channel numbers from the channels API
         try:
             channels = await dispatcharr.get_channels()
-            ch_num_map = {ch.id: ch.channel_number for ch in channels if ch.channel_number}
+            ch_num_map  = {ch.id: ch.channel_number for ch in channels if ch.channel_number}
+            ch_name_map = {ch.id: ch.name           for ch in channels if ch.name}
             for prog in epg_programs:
                 prog.channel_number = ch_num_map.get(prog.channel_id, "")
-            log.info("Enriched programs with channel numbers (%d channels)", len(ch_num_map))
+                if not prog.channel_name:
+                    prog.channel_name = ch_name_map.get(prog.channel_id, "")
+            log.info("Enriched programs with channel numbers and names (%d channels)", len(ch_name_map))
         except Exception as e:
             log.warning("Could not enrich channel data: %s", e)
     else:
