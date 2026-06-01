@@ -80,7 +80,9 @@ async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool
     return await _send_message(token, chat_id, text)
 
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
-                      endpoint: Endpoint, tz_name: str) -> bool:
+                      endpoint: Endpoint, tz_name: str,
+                      show_channels: bool = True,
+                      mode: str = "digest") -> bool:
     from notifiers.base import build_league_digest
     raw = endpoint._raw
     token = raw.get("bot_token", "")
@@ -89,7 +91,8 @@ async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
         return False
 
     ok = True
-    for group in build_league_digest(matches_subs, endpoint, tz_name):
+    for group in build_league_digest(matches_subs, endpoint, tz_name,
+                                     show_channels=show_channels, mode=mode):
         emoji = _emoji(group["sport"])
         header = f"<b>{emoji} {group['title']}</b>"
         parts = [g["rendered"] for g in group["games"] if g.get("rendered")]

@@ -119,6 +119,12 @@ class Endpoint:
     digest_time: str = "08:00"
     digest_team_days: int = 1
     digest_event_days: int = 7
+    digest_show_channels: bool = True
+    weekly_digest_time: str = "08:00"
+    weekly_digest_day: str = "monday"
+    weekly_digest_team_days: int = 7
+    weekly_digest_event_days: int = 7
+    weekly_digest_show_channels: bool = True
     bundle_window_minutes: int = 10
     auto_record: bool = False
     content_defaults: ContentDefaults = field(default_factory=ContentDefaults)

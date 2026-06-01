@@ -61,7 +61,9 @@ async def send_bundled(matches_subs: list[tuple[GameMatch, Subscription]],
     return await _publish(url, topic, title, message)
 
 async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
-                      endpoint: Endpoint, tz_name: str) -> bool:
+                      endpoint: Endpoint, tz_name: str,
+                      show_channels: bool = True,
+                      mode: str = "digest") -> bool:
     from notifiers.base import build_league_digest
     raw = endpoint._raw
     url = raw.get("url", "https://ntfy.sh")
@@ -69,7 +71,8 @@ async def send_digest(matches_subs: list[tuple[GameMatch, Subscription]],
     if not topic:
         return False
     ok = True
-    for group in build_league_digest(matches_subs, endpoint, tz_name):
+    for group in build_league_digest(matches_subs, endpoint, tz_name,
+                                     show_channels=show_channels, mode=mode):
         emoji = _emoji(group["sport"])
         title = f"{emoji} {group['title']}"
         parts = [g["rendered"] for g in group["games"] if g.get("rendered")]

@@ -114,10 +114,13 @@ async def send_digest(
     matches_subs: list[tuple[GameMatch, Subscription]],
     endpoint: Endpoint,
     tz_name: str,
+    show_channels: bool = True,
+    mode: str = "digest",
 ) -> bool:
     from notifiers.base import build_league_digest
     embeds = []
-    for group in build_league_digest(matches_subs, endpoint, tz_name):
+    for group in build_league_digest(matches_subs, endpoint, tz_name,
+                                     show_channels=show_channels, mode=mode):
         emoji = _sport_emoji(group["sport"])
         parts = [g["rendered"] for g in group["games"] if g.get("rendered")]
         embed: dict[str, Any] = {
@@ -133,8 +136,9 @@ async def send_digest(
 
     if not embeds:
         return True
+    day_label = "Today's" if mode == "digest" else "This Week's"
     return await _post_webhook(endpoint._raw.get("webhook_url", ""),
-                               {"content": "🐢 **Today's Games**", "embeds": embeds})
+                               {"content": f"🐢 **{day_label} Games**", "embeds": embeds})
 
 
 async def send_standings(event_name: str, body: str, endpoint: Endpoint) -> bool:

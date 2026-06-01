@@ -161,6 +161,18 @@ async def save_settings(request: Request):
     else:
         raw["notification_defaults"].pop("digest_event_template", None)
 
+    wdg_template = (form.get("weekly_digest_game_template") or "").strip()
+    if wdg_template:
+        raw["notification_defaults"]["weekly_digest_game_template"] = wdg_template
+    else:
+        raw["notification_defaults"].pop("weekly_digest_game_template", None)
+
+    wde_template = (form.get("weekly_digest_event_template") or "").strip()
+    if wde_template:
+        raw["notification_defaults"]["weekly_digest_event_template"] = wde_template
+    else:
+        raw["notification_defaults"].pop("weekly_digest_event_template", None)
+
     try:
         cfg_module.save_config(raw)
     except Exception as e:
@@ -402,6 +414,21 @@ async def digest_endpoints_api():
     return JSONResponse(result)
 
 
+@app.get("/api/weekly-digest-endpoints")
+async def weekly_digest_endpoints_api():
+    raw = cfg_module.load_config()
+    result = [
+        {
+            "id": ep.id, "type": ep.type,
+            "weekly_digest_day": ep.weekly_digest_day,
+            "weekly_digest_time": ep.weekly_digest_time,
+        }
+        for ep in cfg_module.get_endpoints(raw)
+        if "weekly_digest" in ep.modes
+    ]
+    return JSONResponse(result)
+
+
 @app.post("/api/test-digest/{endpoint_id}")
 async def test_digest(endpoint_id: str):
     if not scheduler:
@@ -411,6 +438,18 @@ async def test_digest(endpoint_id: str):
         return JSONResponse({"ok": ok, "error": None if ok else "No games found — run a scan first"})
     except Exception as e:
         log.exception("Test digest failed")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
+@app.post("/api/test-weekly-digest/{endpoint_id}")
+async def test_weekly_digest(endpoint_id: str):
+    if not scheduler:
+        return JSONResponse({"ok": False, "error": "Scheduler not ready"})
+    try:
+        ok = await scheduler.test_fire_weekly_digest(endpoint_id)
+        return JSONResponse({"ok": ok, "error": None if ok else "No weekly digest scheduled — run a scan first"})
+    except Exception as e:
+        log.exception("Test weekly digest failed")
         return JSONResponse({"ok": False, "error": str(e)})
 
 
