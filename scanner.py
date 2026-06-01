@@ -137,6 +137,7 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     games_seen: set[str] = set()
     scheduled_pairs: set[tuple[str, str]] = set()  # (game_id, endpoint_id)
     digest_matches: dict[str, list[tuple[GameMatch, Subscription]]] = {}
+    weekly_digest_matches: dict[str, list[tuple[GameMatch, Subscription]]] = {}
 
     for sub in subs:
         if sub.scope == "event_series":
@@ -178,8 +179,12 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                 scheduled_count += 1
                 if "digest" in ep.modes:
                     days_from_now = (game.start_time.date() - now.date()).days
-                    if days_from_now < ep.digest_team_days:
+                    if days_from_now == 0:
                         digest_matches.setdefault(ep.id, []).append((match, sub))
+                if "weekly_digest" in ep.modes:
+                    days_from_now = (game.start_time.date() - now.date()).days
+                    if days_from_now < ep.weekly_digest_team_days:
+                        weekly_digest_matches.setdefault(ep.id, []).append((match, sub))
 
             games_seen.add(game.id)
 
@@ -334,8 +339,12 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
                     scheduled_count += 1
                     if "digest" in ep.modes:
                         days_from_now = (match.game.start_time.date() - now.date()).days
-                        if days_from_now < ep.digest_event_days:
+                        if days_from_now == 0:
                             digest_matches.setdefault(ep.id, []).append((match, sub))
+                    if "weekly_digest" in ep.modes:
+                        days_from_now = (match.game.start_time.date() - now.date()).days
+                        if days_from_now < ep.weekly_digest_event_days:
+                            weekly_digest_matches.setdefault(ep.id, []).append((match, sub))
 
                 if sub.standings_alert and event and today_has_coverage:
                     standings_scheduled = True
@@ -360,6 +369,14 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
         matches = digest_matches.get(ep.id, [])
         if matches:
             scheduler.schedule_digest(ep, matches, tz_name)
+
+    # Schedule weekly digests for endpoints that have weekly_digest mode
+    for ep in endpoints:
+        if "weekly_digest" not in ep.modes:
+            continue
+        matches = weekly_digest_matches.get(ep.id, [])
+        if matches:
+            scheduler.schedule_weekly_digest(ep, matches, tz_name)
 
     # Arm any newly added tasks
     scheduler.arm_all_pending()

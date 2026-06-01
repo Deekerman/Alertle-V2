@@ -161,6 +161,12 @@ async def save_settings(request: Request):
     else:
         raw["notification_defaults"].pop("digest_event_template", None)
 
+    wdg_template = (form.get("weekly_digest_game_template") or "").strip()
+    if wdg_template:
+        raw["notification_defaults"]["weekly_digest_game_template"] = wdg_template
+    else:
+        raw["notification_defaults"].pop("weekly_digest_game_template", None)
+
     try:
         cfg_module.save_config(raw)
     except Exception as e:

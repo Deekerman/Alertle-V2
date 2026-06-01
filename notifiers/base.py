@@ -31,17 +31,13 @@ DEFAULT_GAME_SUMMARY_TEMPLATE = """{time}
 DEFAULT_LEAD_TIME_TEMPLATE = DEFAULT_TEMPLATE
 
 DEFAULT_DIGEST_GAME_TEMPLATE = """{away} at {home}
-Game Start:
 {time}
 {context}
-Times & Channels
-{channels}"""
+{channels_line}"""
 
 DEFAULT_DIGEST_EVENT_TEMPLATE = """{home}
-Event Start:
 {time}
-Times & Channels:
-{channels}"""
+{channels_line}"""
 
 
 def _get_template(endpoint: Endpoint, mode: str = "") -> str:
@@ -88,6 +84,26 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
             return d_t
         log.debug("Template source: built-in DEFAULT_DIGEST_EVENT_TEMPLATE for %s", endpoint.id)
         return DEFAULT_DIGEST_EVENT_TEMPLATE
+    elif mode == "weekly_digest":
+        ep_t = endpoint._raw.get("weekly_digest_game_template", "")
+        if ep_t:
+            log.debug("Template source: endpoint override (weekly_digest) for %s", endpoint.id)
+            return ep_t
+        import config as _cfg
+        nd = _cfg.load_config().get("notification_defaults", {})
+        wt = nd.get("weekly_digest_game_template", "")
+        if wt:
+            log.debug("Template source: global weekly_digest_game_template for %s", endpoint.id)
+            return wt
+        # Fall back to digest_game_template then default
+        ep_d = endpoint._raw.get("digest_game_template", "")
+        if ep_d:
+            return ep_d
+        d_t = nd.get("digest_game_template", "")
+        if d_t:
+            return d_t
+        log.debug("Template source: built-in DEFAULT_DIGEST_GAME_TEMPLATE for %s (weekly)", endpoint.id)
+        return DEFAULT_DIGEST_GAME_TEMPLATE
     elif mode == "lead_time":
         ep_t = endpoint._raw.get("lead_time_template", "")
         if ep_t:
@@ -185,6 +201,7 @@ def build_game_lines(
     tz_name: str,
     mode: str = "lead_time",
     winner_abbrev: str = "",
+    show_channels: bool = True,
 ) -> dict:
     """
     Build a structured dict of notification content for one game.
@@ -200,8 +217,10 @@ def build_game_lines(
     time_str = format_game_time(game.start_time, tz_name)
     if is_event and match.schedule:
         channels_str = _format_schedule(match.schedule, tz_name)
+        channels_line = channels_str  # schedule block, no prefix
     else:
         channels_str = "\n".join(match.channels) if match.channels else ""
+        channels_line = f"📺 {channels_str}" if channels_str else ""
 
     venue = ""
     if game.venue:
@@ -232,6 +251,10 @@ def build_game_lines(
 
     broadcast = ", ".join(game.broadcast_networks) if game.broadcast_networks else ""
 
+    if not show_channels:
+        channels_str = ""
+        channels_line = ""
+
     # Game-Thumbs — read base_url from config at runtime
     thumb_url = ""
     try:
@@ -249,11 +272,12 @@ def build_game_lines(
     except Exception:
         pass
 
-    template_mode = "digest_event" if (mode == "digest" and is_event) else mode
+    template_mode = "digest_event" if (mode in ("digest", "weekly_digest") and is_event) else mode
     template = _get_template(endpoint, template_mode)
     vars_map = {
         "time":         time_str,
         "channels":     channels_str,
+        "channels_line": channels_line,
         "broadcast":    broadcast,
         "venue":        venue,
         "context":      context,
@@ -277,17 +301,18 @@ def build_game_lines(
     log.debug("Rendered notification [%s/%s]: %r", endpoint.id, mode, rendered[:300])
 
     return {
-        "title":     title,
-        "time":      time_str,
-        "channels":  channels_str,
-        "broadcast": broadcast,
-        "venue":     venue,
-        "context":   context,
-        "odds":      odds,
-        "score":     score,
-        "thumb_url": thumb_url,
-        "rendered":  rendered,
-        "template":  template,
+        "title":         title,
+        "time":          time_str,
+        "channels":      channels_str,
+        "channels_line": channels_line,
+        "broadcast":     broadcast,
+        "venue":         venue,
+        "context":       context,
+        "odds":          odds,
+        "score":         score,
+        "thumb_url":     thumb_url,
+        "rendered":      rendered,
+        "template":      template,
     }
 
 
@@ -307,6 +332,8 @@ def build_league_digest(
     matches_subs: list[tuple[GameMatch, Subscription]],
     endpoint: Endpoint,
     tz_name: str,
+    show_channels: bool = True,
+    mode: str = "digest",
 ) -> list[dict]:
     """
     Group games by league and build one content dict per league group.
@@ -329,19 +356,21 @@ def build_league_digest(
     except Exception:
         pass
 
+    day_label = "Today's" if mode == "digest" else "This Week's"
+
     result = []
     for (sport, league), group in groups.items():
         game_lines = [
-            build_game_lines(m, endpoint, sub, tz_name, mode="digest")
+            build_game_lines(m, endpoint, sub, tz_name, mode=mode, show_channels=show_channels)
             for m, sub in group
         ]
         label = group[0][1].label or league.upper()
         is_event_group = any(m.game.id.startswith("event:") for m, _ in group)
         if is_event_group:
-            title = f"Today's {label} Event"
+            title = f"{day_label} {label} Event"
         else:
             n = len(group)
-            title = f"Today's {label} {'Games' if n != 1 else 'Game'}"
+            title = f"{day_label} {label} {'Games' if n != 1 else 'Game'}"
 
         thumb_url = ""
         if thumbs_enabled:

@@ -126,7 +126,8 @@
       <div class="form-row">
         <label>Notification Modes</label>
         <div class="check-group check-group--row">
-          <label class="check-opt"><input type="checkbox" name="modes" value="digest"> Morning Digest</label>
+          <label class="check-opt"><input type="checkbox" name="modes" value="digest" onchange="onDigestModeChange()"> Daily Digest</label>
+          <label class="check-opt"><input type="checkbox" name="modes" value="weekly_digest" onchange="onDigestModeChange()"> Weekly Digest</label>
           <label class="check-opt"><input type="checkbox" name="modes" value="lead_time" checked> Lead Time</label>
           <label class="check-opt"><input type="checkbox" name="modes" value="game_start"> Game Start</label>
           <label class="check-opt"><input type="checkbox" name="modes" value="game_summary"> Game Summary</label>
@@ -155,7 +156,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label for="digest-time">Digest Time</label>
+          <label for="digest-time">Daily Digest Time</label>
           <input type="text" id="digest-time" value="08:00" placeholder="HH:MM">
         </div>
         <div class="form-row">
@@ -166,25 +167,54 @@
             <option value="15">±15 min</option>
           </select>
         </div>
-        <div class="form-row">
-          <label for="digest-team-days">Digest — Team Sports</label>
-          <select id="digest-team-days">
-            <option value="1" selected>Today only</option>
-            <option value="2">Today + Tomorrow</option>
-            <option value="3">Next 3 days</option>
-            <option value="7">Full week</option>
-          </select>
-          <span class="hint">Days of team sport games to include in the morning digest.</span>
+      </div>
+
+      <label class="check-opt" style="margin-top:.5rem">
+        <input type="checkbox" id="digest-show-channels" checked> Include channels in daily digest
+      </label>
+
+      <!-- Weekly digest config — shown only when weekly_digest mode is checked -->
+      <div id="weekly-digest-config" class="hidden" style="margin-top:1rem;padding:1rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="font-size:.85rem;font-weight:600;color:var(--accent);margin-bottom:.75rem">Weekly Digest Settings</div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label for="weekly-digest-time">Send At</label>
+            <input type="text" id="weekly-digest-time" value="08:00" placeholder="HH:MM">
+          </div>
+          <div class="form-row">
+            <label for="weekly-digest-day">Send On</label>
+            <select id="weekly-digest-day">
+              <option value="monday">Monday</option>
+              <option value="tuesday">Tuesday</option>
+              <option value="wednesday">Wednesday</option>
+              <option value="thursday">Thursday</option>
+              <option value="friday">Friday</option>
+              <option value="saturday">Saturday</option>
+              <option value="sunday">Sunday</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="weekly-digest-team-days">Team Sports Lookahead</label>
+            <select id="weekly-digest-team-days">
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+              <option value="5">5 days</option>
+              <option value="7" selected>7 days</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="weekly-digest-event-days">Events Lookahead</label>
+            <select id="weekly-digest-event-days">
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+              <option value="5">5 days</option>
+              <option value="7" selected>7 days</option>
+            </select>
+          </div>
         </div>
-        <div class="form-row">
-          <label for="digest-event-days">Digest — Events (Golf, F1…)</label>
-          <select id="digest-event-days">
-            <option value="2">Next 2 days</option>
-            <option value="4">Next 4 days</option>
-            <option value="7" selected>Full week</option>
-          </select>
-          <span class="hint">Days of event series coverage to include in the morning digest.</span>
-        </div>
+        <label class="check-opt" style="margin-top:.5rem">
+          <input type="checkbox" id="weekly-digest-show-channels" checked> Include channels in weekly digest
+        </label>
       </div>
 
       <hr class="divider">
@@ -339,8 +369,13 @@
     document.getElementById('bundle-window').value = '10';
     document.getElementById('precision').value = '0';
     document.getElementById('digest-time').value = '08:00';
-    document.getElementById('digest-team-days').value = '1';
-    document.getElementById('digest-event-days').value = '7';
+    document.getElementById('digest-show-channels').checked = true;
+    document.getElementById('weekly-digest-time').value = '08:00';
+    document.getElementById('weekly-digest-day').value = 'monday';
+    document.getElementById('weekly-digest-team-days').value = '7';
+    document.getElementById('weekly-digest-event-days').value = '7';
+    document.getElementById('weekly-digest-show-channels').checked = true;
+    document.getElementById('weekly-digest-config').classList.add('hidden');
     document.getElementById('gt-type').value = 'thumb';
     document.getElementById('gt-style').value = '1';
     document.getElementById('gt-aspect').value = '16-9';
@@ -395,9 +430,14 @@
     if (data.lead_time_minutes != null) document.getElementById('lead-time').value = String(data.lead_time_minutes);
     if (data.precision_minutes != null) document.getElementById('precision').value = String(data.precision_minutes);
     if (data.digest_time) document.getElementById('digest-time').value = data.digest_time;
-    if (data.digest_team_days != null) document.getElementById('digest-team-days').value = String(data.digest_team_days);
-    if (data.digest_event_days != null) document.getElementById('digest-event-days').value = String(data.digest_event_days);
+    document.getElementById('digest-show-channels').checked = data.digest_show_channels !== false;
+    if (data.weekly_digest_time) document.getElementById('weekly-digest-time').value = data.weekly_digest_time;
+    if (data.weekly_digest_day) document.getElementById('weekly-digest-day').value = data.weekly_digest_day;
+    if (data.weekly_digest_team_days != null) document.getElementById('weekly-digest-team-days').value = String(data.weekly_digest_team_days);
+    if (data.weekly_digest_event_days != null) document.getElementById('weekly-digest-event-days').value = String(data.weekly_digest_event_days);
+    document.getElementById('weekly-digest-show-channels').checked = data.weekly_digest_show_channels !== false;
     if (data.bundle_window_minutes != null) document.getElementById('bundle-window').value = String(data.bundle_window_minutes);
+    onDigestModeChange();
 
     // Content overrides (only check fields explicitly set)
     const cd = data.content_defaults || {};
@@ -429,6 +469,11 @@
     if (type) document.getElementById('creds-' + type)?.classList.remove('hidden');
   }
 
+  function onDigestModeChange() {
+    const weeklyChecked = document.querySelector('input[name="modes"][value="weekly_digest"]')?.checked;
+    document.getElementById('weekly-digest-config').classList.toggle('hidden', !weeklyChecked);
+  }
+
   async function saveEndpoint(e) {
     e.preventDefault();
     const type = document.getElementById('ep-type').value;
@@ -450,8 +495,12 @@
       lead_time_minutes: parseInt(document.getElementById('lead-time').value),
       precision_minutes: parseInt(document.getElementById('precision').value),
       digest_time: document.getElementById('digest-time').value,
-      digest_team_days: parseInt(document.getElementById('digest-team-days').value),
-      digest_event_days: parseInt(document.getElementById('digest-event-days').value),
+      digest_show_channels: document.getElementById('digest-show-channels').checked,
+      weekly_digest_time: document.getElementById('weekly-digest-time').value,
+      weekly_digest_day: document.getElementById('weekly-digest-day').value,
+      weekly_digest_team_days: parseInt(document.getElementById('weekly-digest-team-days').value),
+      weekly_digest_event_days: parseInt(document.getElementById('weekly-digest-event-days').value),
+      weekly_digest_show_channels: document.getElementById('weekly-digest-show-channels').checked,
       bundle_window_minutes: parseInt(document.getElementById('bundle-window').value),
       auto_record: false,
       notification_template,
