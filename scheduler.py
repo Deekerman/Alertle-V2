@@ -494,11 +494,14 @@ class AlertScheduler:
 
         matches_subs = []
         seen_game_ids: set[str] = set()
+        today = datetime.now(timezone.utc).date()
         for (match_json,) in rows:
             try:
                 match = _deserialise_match(match_json)
                 if match.game.id in seen_game_ids:
                     continue
+                if match.game.start_time.date() != today:
+                    continue  # skip future/past games — daily digest is today only
                 seen_game_ids.add(match.game.id)
                 sub = _find_sub_for_game(match.game, subs, endpoint_id)
                 matches_subs.append((match, sub))
