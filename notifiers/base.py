@@ -104,6 +104,26 @@ def _get_template(endpoint: Endpoint, mode: str = "") -> str:
             return d_t
         log.debug("Template source: built-in DEFAULT_DIGEST_GAME_TEMPLATE for %s (weekly)", endpoint.id)
         return DEFAULT_DIGEST_GAME_TEMPLATE
+    elif mode == "weekly_digest_event":
+        ep_t = endpoint._raw.get("weekly_digest_event_template", "")
+        if ep_t:
+            log.debug("Template source: endpoint override (weekly_digest_event) for %s", endpoint.id)
+            return ep_t
+        import config as _cfg
+        nd = _cfg.load_config().get("notification_defaults", {})
+        wt = nd.get("weekly_digest_event_template", "")
+        if wt:
+            log.debug("Template source: global weekly_digest_event_template for %s", endpoint.id)
+            return wt
+        # Fall back to daily digest event template chain
+        ep_d = endpoint._raw.get("digest_event_template", "")
+        if ep_d:
+            return ep_d
+        d_t = nd.get("digest_event_template", "")
+        if d_t:
+            return d_t
+        log.debug("Template source: built-in DEFAULT_DIGEST_EVENT_TEMPLATE for %s (weekly event)", endpoint.id)
+        return DEFAULT_DIGEST_EVENT_TEMPLATE
     elif mode == "lead_time":
         ep_t = endpoint._raw.get("lead_time_template", "")
         if ep_t:
@@ -272,7 +292,10 @@ def build_game_lines(
     except Exception:
         pass
 
-    template_mode = "digest_event" if (mode in ("digest", "weekly_digest") and is_event) else mode
+    if is_event:
+        template_mode = "weekly_digest_event" if mode == "weekly_digest" else "digest_event"
+    else:
+        template_mode = mode
     template = _get_template(endpoint, template_mode)
     vars_map = {
         "time":         time_str,

@@ -461,8 +461,8 @@ class AlertScheduler:
 
         # Prefer the scheduled digest alert if one exists
         row = self._conn.execute(
-            "SELECT game_match_json, mode FROM scheduled_alerts "
-            "WHERE endpoint_id=? AND mode IN ('digest','weekly_digest') AND sent=0 "
+            "SELECT game_match_json FROM scheduled_alerts "
+            "WHERE endpoint_id=? AND mode='digest' AND sent=0 "
             "ORDER BY fire_at DESC LIMIT 1",
             (endpoint_id,)
         ).fetchone()
@@ -470,14 +470,13 @@ class AlertScheduler:
         if row:
             try:
                 matches_data = json.loads(row[0])
-                digest_mode = row[1]
                 matches_subs = []
                 for match_dict in matches_data:
                     match = _deserialise_match(json.dumps(match_dict))
                     sub = _find_sub_for_game(match.game, subs, endpoint_id)
                     matches_subs.append((match, sub))
                 if matches_subs:
-                    await _dispatch(endpoint, digest_mode, matches_subs, tz_name)
+                    await _dispatch(endpoint, "digest", matches_subs, tz_name)
                     return True
             except Exception as e:
                 log.warning("Digest alert load failed, falling back to pending alerts: %s", e)

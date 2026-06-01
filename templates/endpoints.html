@@ -280,6 +280,26 @@
                   placeholder="Leave empty to use the global Digest Event Template from Settings&#10;&#10;Example:&#10;{context}&#10;📺 {channels}"></textarea>
         <span class="hint">Same variables as Notification Template. Leave empty to use Settings default.</span>
       </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-weekly-digest-team-template">
+          Weekly Digest Template — Team Sports
+          <span class="hint">(optional — overrides global Weekly Digest Team Sports template)</span>
+        </label>
+        <textarea id="ep-weekly-digest-team-template" rows="4"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use global Weekly Digest Template (Team Sports)"></textarea>
+        <span class="hint">Leave empty to use Settings default.</span>
+      </div>
+      <div class="form-row" style="margin-top:.75rem">
+        <label for="ep-weekly-digest-event-template">
+          Weekly Digest Template — Events (Golf, F1…)
+          <span class="hint">(optional — overrides global Weekly Digest Events template)</span>
+        </label>
+        <textarea id="ep-weekly-digest-event-template" rows="4"
+                  style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                  placeholder="Leave empty to use global Weekly Digest Template (Events)"></textarea>
+        <span class="hint">Leave empty to use Settings default.</span>
+      </div>
 
       <hr class="divider">
 
@@ -391,6 +411,8 @@
     document.getElementById('ep-game-summary-template').value = '';
     document.getElementById('ep-digest-team-template').value = '';
     document.getElementById('ep-digest-event-template').value = '';
+    document.getElementById('ep-weekly-digest-team-template').value = '';
+    document.getElementById('ep-weekly-digest-event-template').value = '';
   }
 
   function editEndpoint(data) {
@@ -459,6 +481,8 @@
     document.getElementById('ep-game-summary-template').value = data.game_summary_template || '';
     document.getElementById('ep-digest-team-template').value = data.digest_game_template || '';
     document.getElementById('ep-digest-event-template').value = data.digest_event_template || '';
+    document.getElementById('ep-weekly-digest-team-template').value = data.weekly_digest_game_template || '';
+    document.getElementById('ep-weekly-digest-event-template').value = data.weekly_digest_event_template || '';
 
     openModal('ep-modal');
   }
@@ -508,6 +532,8 @@
       game_summary_template,
       digest_game_template,
       digest_event_template,
+      weekly_digest_game_template: document.getElementById('ep-weekly-digest-team-template').value.trim(),
+      weekly_digest_event_template: document.getElementById('ep-weekly-digest-event-template').value.trim(),
       game_thumbs: {
         type: document.getElementById('gt-type').value,
         style: parseInt(document.getElementById('gt-style').value),

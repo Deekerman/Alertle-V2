@@ -99,6 +99,17 @@
         Use <code>{channels_line}</code> for a 📺-prefixed channel line (auto-hidden when channels are disabled).
       </span>
     </div>
+    <div class="form-row" style="margin-top:1rem">
+      <label for="weekly_digest_event_template">Weekly Digest Template — Events (Golf, F1…)</label>
+      <textarea id="weekly_digest_event_template" name="weekly_digest_event_template" rows="5"
+                style="font-family: monospace; font-size: 0.85rem; white-space: pre"
+                placeholder="Leave empty to use Digest Template (Events) above&#10;&#10;Example:&#10;{home}&#10;{time}&#10;{channels_line}">{{ cfg.get('notification_defaults', {}).get('weekly_digest_event_template', '') }}</textarea>
+      <span class="hint">
+        Formats each event in the <strong>weekly</strong> digest (Golf, F1, Tennis, etc.).
+        Leave empty to use the Digest Template (Events) above.
+        <code>{channels_line}</code> includes the full broadcast schedule with time slots.
+      </span>
+    </div>
   </section>
 
   <section class="form-section">
