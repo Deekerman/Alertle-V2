@@ -63,6 +63,7 @@ class DispatcharrClient:
                     id=str(item.get("id", "")),
                     name=item.get("name", ""),
                     channel_number=_format_channel_number(raw_num),
+                    tvg_id=str(item.get("tvg_id") or ""),
                 ))
             # Follow pagination via the next URL
             next_url: str | None = data.get("next") if isinstance(data, dict) else None

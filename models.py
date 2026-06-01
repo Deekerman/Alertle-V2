@@ -59,6 +59,7 @@ class EPGChannel:
     id: str
     name: str
     channel_number: str = ""
+    tvg_id: str = ""
 
 
 @dataclass
