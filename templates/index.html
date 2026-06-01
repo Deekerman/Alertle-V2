@@ -45,8 +45,16 @@
   <div class="section-header">
     <h2>Morning Digest</h2>
   </div>
-  <p class="hint" style="margin-bottom:.75rem">Send a digest of all upcoming games immediately (does not affect the scheduled digest).</p>
+  <p class="hint" style="margin-bottom:.75rem">Send a digest of today's games immediately (does not affect the scheduled digest).</p>
   <div id="digest-buttons"></div>
+</div>
+
+<div class="section" id="weekly-digest-section" style="display:none">
+  <div class="section-header">
+    <h2>Weekly Digest</h2>
+  </div>
+  <p class="hint" style="margin-bottom:.75rem">Send a weekly digest of upcoming games immediately (does not affect the scheduled weekly digest).</p>
+  <div id="weekly-digest-buttons"></div>
 </div>
 
 <div class="section">
@@ -502,18 +510,35 @@
   async function loadDigestEndpoints() {
     try {
       const eps = await apiFetch('/api/digest-endpoints');
-      if (!eps.length) return;
-      const section = document.getElementById('digest-section');
-      const container = document.getElementById('digest-buttons');
-      section.style.display = '';
-      container.innerHTML = eps.map(ep => `
-        <div style="display:inline-flex;align-items:center;gap:.5rem;margin:.25rem .75rem .25rem 0">
-          <span class="badge badge--type">${ep.id}</span>
-          <span class="text-dim" style="font-size:.8rem">${ep.digest_time}</span>
-          <button class="btn btn-secondary btn-sm" onclick="testDigest(this,'${encodeURIComponent(ep.id)}')">Test Digest</button>
-          <span class="inline-status" style="font-size:.82rem"></span>
-        </div>`).join('');
+      if (eps.length) {
+        const section = document.getElementById('digest-section');
+        const container = document.getElementById('digest-buttons');
+        section.style.display = '';
+        container.innerHTML = eps.map(ep => `
+          <div style="display:inline-flex;align-items:center;gap:.5rem;margin:.25rem .75rem .25rem 0">
+            <span class="badge badge--type">${ep.id}</span>
+            <span class="text-dim" style="font-size:.8rem">${ep.digest_time}</span>
+            <button class="btn btn-secondary btn-sm" onclick="testDigest(this,'${encodeURIComponent(ep.id)}')">Test Digest</button>
+            <span class="inline-status" style="font-size:.82rem"></span>
+          </div>`).join('');
+      }
     } catch(e) { console.error('Digest endpoints load failed:', e); }
+
+    try {
+      const weps = await apiFetch('/api/weekly-digest-endpoints');
+      if (weps.length) {
+        const section = document.getElementById('weekly-digest-section');
+        const container = document.getElementById('weekly-digest-buttons');
+        section.style.display = '';
+        container.innerHTML = weps.map(ep => `
+          <div style="display:inline-flex;align-items:center;gap:.5rem;margin:.25rem .75rem .25rem 0">
+            <span class="badge badge--type">${ep.id}</span>
+            <span class="text-dim" style="font-size:.8rem">${ep.weekly_digest_day} @ ${ep.weekly_digest_time}</span>
+            <button class="btn btn-secondary btn-sm" onclick="testWeeklyDigest(this,'${encodeURIComponent(ep.id)}')">Test Weekly Digest</button>
+            <span class="inline-status" style="font-size:.82rem"></span>
+          </div>`).join('');
+      }
+    } catch(e) { console.error('Weekly digest endpoints load failed:', e); }
   }
 
   async function testDigest(btn, encodedId) {
@@ -524,6 +549,26 @@
     statusEl.textContent = '';
     try {
       const res = await apiFetch('/api/test-digest/' + encodedId, { method: 'POST' });
+      statusEl.textContent = res.ok ? '✅ Sent' : '❌ ' + (res.error || 'Error');
+      statusEl.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+    } catch(e) {
+      statusEl.textContent = '❌ ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function testWeeklyDigest(btn, encodedId) {
+    const statusEl = btn.nextElementSibling;
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    statusEl.textContent = '';
+    try {
+      const res = await apiFetch('/api/test-weekly-digest/' + encodedId, { method: 'POST' });
       statusEl.textContent = res.ok ? '✅ Sent' : '❌ ' + (res.error || 'Error');
       statusEl.style.color = res.ok ? 'var(--green)' : 'var(--red)';
     } catch(e) {

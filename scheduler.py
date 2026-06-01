@@ -512,6 +512,43 @@ class AlertScheduler:
         await _dispatch(endpoint, "digest", matches_subs, tz_name)
         return True
 
+    async def test_fire_weekly_digest(self, endpoint_id: str) -> bool:
+        """Fire a weekly digest immediately for an endpoint without marking it sent."""
+        raw = cfg_module.load_config()
+        endpoint = cfg_module.get_endpoint_by_id(endpoint_id, raw)
+        if not endpoint:
+            log.warning("Endpoint %s not found for weekly digest test", endpoint_id)
+            return False
+
+        tz_name = cfg_module.get_timezone(raw)
+        subs = cfg_module.get_subscriptions(raw)
+
+        row = self._conn.execute(
+            "SELECT game_match_json FROM scheduled_alerts "
+            "WHERE endpoint_id=? AND mode='weekly_digest' AND sent=0 "
+            "ORDER BY fire_at DESC LIMIT 1",
+            (endpoint_id,)
+        ).fetchone()
+
+        if not row:
+            log.info("No pending weekly_digest alert for endpoint %s", endpoint_id)
+            return False
+
+        try:
+            matches_data = json.loads(row[0])
+            matches_subs = []
+            for match_dict in matches_data:
+                match = _deserialise_match(json.dumps(match_dict))
+                sub = _find_sub_for_game(match.game, subs, endpoint_id)
+                matches_subs.append((match, sub))
+            if not matches_subs:
+                return False
+            await _dispatch(endpoint, "weekly_digest", matches_subs, tz_name)
+            return True
+        except Exception as e:
+            log.error("Weekly digest test failed for %s: %s", endpoint_id, e)
+            return False
+
     async def _fire_summary_with_retry(
         self,
         alert: ScheduledAlert,
@@ -660,19 +697,20 @@ class AlertScheduler:
                         "channels": [],
                         "game_start": alert.fire_at.isoformat(),
                     })
-                elif alert.mode == "digest":
+                elif alert.mode in ("digest", "weekly_digest"):
                     matches_data = json.loads(alert.game_match_json)
                     game_count = len(matches_data) if isinstance(matches_data, list) else 0
+                    label = "DIGEST" if alert.mode == "digest" else "WEEKLY DIGEST"
                     result.append({
                         "id": alert.id,
                         "endpoint_id": alert.endpoint_id,
-                        "mode": "digest",
+                        "mode": alert.mode,
                         "fire_at": alert.fire_at.isoformat(),
                         "game_id": alert.game_id,
                         "away_team": "",
                         "home_team": f"{game_count} game{'s' if game_count != 1 else ''}",
                         "sport": "",
-                        "league": "DIGEST",
+                        "league": label,
                         "channels": [],
                         "game_start": alert.fire_at.isoformat(),
                     })
@@ -721,6 +759,15 @@ class AlertScheduler:
                 game_match_json=match_json,
             )
             await self._fire_standings(temp_alert, endpoint, tz_name)
+            return True
+
+        if mode in ("digest", "weekly_digest"):
+            temp_alert = ScheduledAlert(
+                id=alert_id, game_id="", endpoint_id=endpoint_id,
+                mode=mode, fire_at=datetime.now(timezone.utc),
+                game_match_json=match_json,
+            )
+            await self._fire_digest(temp_alert, endpoint, tz_name)
             return True
 
         match = _deserialise_match(match_json)
