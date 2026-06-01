@@ -234,13 +234,20 @@ class AlertScheduler:
         if delay > 0:
             await asyncio.sleep(delay)
 
-        # Guard: alert may have been pruned from the DB while we were sleeping
+        # Guard: alert may have been pruned from the DB while we were sleeping.
+        # Also refresh game_match_json from DB — a later scan may have updated it
+        # with new content (e.g. corrected digest game list).
         row = self._conn.execute(
-            "SELECT sent FROM scheduled_alerts WHERE id=?", (alert.id,)
+            "SELECT sent, game_match_json FROM scheduled_alerts WHERE id=?", (alert.id,)
         ).fetchone()
         if not row or row[0]:
             self._tasks.pop(alert.id, None)
             return
+        if row[1] and row[1] != alert.game_match_json:
+            alert = ScheduledAlert(
+                id=alert.id, game_id=alert.game_id, endpoint_id=alert.endpoint_id,
+                mode=alert.mode, fire_at=alert.fire_at, game_match_json=row[1],
+            )
 
         raw = cfg_module.load_config()
         tz_name = cfg_module.get_timezone(raw)
@@ -285,16 +292,24 @@ class AlertScheduler:
         except Exception:
             log.error("Failed to parse digest game_match_json for alert %s", alert.id)
             return
+        # For daily digests, filter to today's games only.
+        # This prevents stale DB entries (from old code that included multi-day events)
+        # from polluting the digest with games starting Thursday, etc.
+        today = datetime.now(timezone.utc).date() if alert.mode == "digest" else None
         matches_subs = []
         for match_dict in matches_data:
             try:
                 match = _deserialise_match(json.dumps(match_dict))
+                if today is not None and match.game.start_time.date() != today:
+                    log.debug("Digest %s: skipping %s (starts %s, not today)",
+                              alert.id, match.game.id, match.game.start_time.date())
+                    continue
                 sub = _find_sub_for_game(match.game, subs, alert.endpoint_id)
                 matches_subs.append((match, sub))
             except Exception as e:
                 log.warning("Skipping invalid match in digest %s: %s", alert.id, e)
         if not matches_subs:
-            log.warning("Digest alert %s has no valid matches — skipping", alert.id)
+            log.info("Digest %s: no games today — skipping notification", alert.id)
             return
         await _dispatch(endpoint, alert.mode, matches_subs, tz_name)
 
