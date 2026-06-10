@@ -11,7 +11,7 @@ import json
 import logging
 import random
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from models import (
@@ -292,24 +292,30 @@ class AlertScheduler:
         except Exception:
             log.error("Failed to parse digest game_match_json for alert %s", alert.id)
             return
-        # For daily digests, filter to today's games only.
-        # This prevents stale DB entries (from old code that included multi-day events)
-        # from polluting the digest with games starting Thursday, etc.
-        today = datetime.now(timezone.utc).date() if alert.mode == "digest" else None
+        # For daily digests, filter to the digest's own date — not "now".
+        # The alert ID encodes the date: "digest:{endpoint_id}:{YYYY-MM-DD}".
+        # Using the alert's date (not fire time) means the correct games are kept
+        # even when the scan ran after the digest time and fire_at is tomorrow.
+        filter_date: date | None = None
+        if alert.mode == "digest":
+            try:
+                filter_date = date.fromisoformat(alert.id.rsplit(":", 1)[-1])
+            except ValueError:
+                filter_date = datetime.now(timezone.utc).date()
         matches_subs = []
         for match_dict in matches_data:
             try:
                 match = _deserialise_match(json.dumps(match_dict))
-                if today is not None and match.game.start_time.date() != today:
-                    log.debug("Digest %s: skipping %s (starts %s, not today)",
-                              alert.id, match.game.id, match.game.start_time.date())
+                if filter_date is not None and match.game.start_time.date() != filter_date:
+                    log.debug("Digest %s: skipping %s (starts %s, not digest date %s)",
+                              alert.id, match.game.id, match.game.start_time.date(), filter_date)
                     continue
                 sub = _find_sub_for_game(match.game, subs, alert.endpoint_id)
                 matches_subs.append((match, sub))
             except Exception as e:
                 log.warning("Skipping invalid match in digest %s: %s", alert.id, e)
         if not matches_subs:
-            log.info("Digest %s: no games today — skipping notification", alert.id)
+            log.info("Digest %s: no games for %s — skipping notification", alert.id, filter_date)
             return
         await _dispatch(endpoint, alert.mode, matches_subs, tz_name)
 
@@ -476,7 +482,7 @@ class AlertScheduler:
 
         # Prefer the scheduled digest alert if one exists
         row = self._conn.execute(
-            "SELECT game_match_json FROM scheduled_alerts "
+            "SELECT id, game_match_json FROM scheduled_alerts "
             "WHERE endpoint_id=? AND mode='digest' AND sent=0 "
             "ORDER BY fire_at DESC LIMIT 1",
             (endpoint_id,)
@@ -484,13 +490,20 @@ class AlertScheduler:
 
         if row:
             try:
-                matches_data = json.loads(row[0])
-                today = datetime.now(timezone.utc).date()
+                alert_id, game_match_json = row
+                # Filter to the digest's own date (encoded in the alert ID) so
+                # the test shows the same games the real digest will show, even
+                # when the scan ran after the digest time (fire_at = tomorrow).
+                try:
+                    filter_date = date.fromisoformat(alert_id.rsplit(":", 1)[-1])
+                except ValueError:
+                    filter_date = datetime.now(timezone.utc).date()
+                matches_data = json.loads(game_match_json)
                 matches_subs = []
                 for match_dict in matches_data:
                     match = _deserialise_match(json.dumps(match_dict))
-                    if match.game.start_time.date() != today:
-                        continue  # daily digest is today only — skip stale future events
+                    if match.game.start_time.date() != filter_date:
+                        continue  # skip games not belonging to this digest's date
                     sub = _find_sub_for_game(match.game, subs, endpoint_id)
                     matches_subs.append((match, sub))
                 if matches_subs:
