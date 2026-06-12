@@ -624,17 +624,21 @@ class AlertScheduler:
             log.info("Cleaned up %d event series alerts", cur.rowcount)
 
     def cleanup_alerts_for_sport_league(self, sport: str, league: str) -> None:
-        """Delete all unsent alerts for a specific event-series sport/league."""
+        """Delete unsent future alerts for a specific event-series sport/league.
+        Preserves today's alerts so same-day notifications still fire even after
+        a daily rescan (which rebuilds from day_offset=1 / tomorrow onward).
+        """
         pattern = f"event:{sport}:{league}:%"
         standings_pattern = f"standings:{sport}:{league}:%"
         cur = self._conn.execute(
             "DELETE FROM scheduled_alerts WHERE sent=0 "
-            "AND (game_id LIKE ? OR id LIKE ?)",
+            "AND (game_id LIKE ? OR id LIKE ?) "
+            "AND DATE(fire_at) > DATE('now')",
             (pattern, standings_pattern)
         )
         self._conn.commit()
         if cur.rowcount:
-            log.info("Removed %d alerts for %s/%s", cur.rowcount, sport, league)
+            log.info("Removed %d future alerts for %s/%s", cur.rowcount, sport, league)
 
     def prune_orphaned_event_series_alerts(self, active_sport_leagues: set[tuple[str, str]]) -> None:
         """Remove unsent event series alerts for sport/league combos not in active subscriptions."""
