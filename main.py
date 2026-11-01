@@ -352,7 +352,7 @@ async def list_channels():
         from epg.xmltv import fetch_xmltv_channels
         try:
             xmltv_url = f"{client.base_url}/output/epg/{output_profile}/"
-            channels = await fetch_xmltv_channels(xmltv_url, headers=client.headers)
+            channels = await fetch_xmltv_channels(xmltv_url)
             return JSONResponse([
                 {"id": ch["id"], "name": ch["name"], "number": ch["number"]}
                 for ch in channels
