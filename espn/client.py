@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -260,6 +260,8 @@ async def get_scoreboard(sport: str, league: str, dates: str | None = None) -> l
     Fetch scoreboard for a sport/league.
     dates: optional YYYYMMDD or YYYYMMDD-YYYYMMDD range string.
     Cached for 5 minutes (bypass cache if dates is None = live/today).
+    If the range query returns 400 (some ESPN endpoints don't support ranges),
+    falls back to fetching each day in the range individually.
     """
     cache_key = f"scoreboard:{sport}:{league}:{dates or 'today'}"
     cached = games_cache.get(cache_key)
@@ -273,6 +275,50 @@ async def get_scoreboard(sport: str, league: str, dates: str | None = None) -> l
 
     try:
         data = await _get(url, params)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400 and dates and "-" in dates:
+            # Range query rejected — fetch each day individually and merge
+            log.warning(
+                "ESPN %s/%s rejected range %s (400); falling back to per-day fetches",
+                sport, league, dates,
+            )
+            start_str, end_str = dates.split("-", 1)
+            try:
+                start_dt = datetime.strptime(start_str, "%Y%m%d")
+                end_dt   = datetime.strptime(end_str,   "%Y%m%d")
+            except ValueError:
+                log.error("ESPN scoreboard fetch failed (%s/%s): %s", sport, league, e)
+                return []
+            seen: set[str] = set()
+            games: list[ESPNGame] = []
+            day = start_dt
+            while day <= end_dt:
+                day_str = day.strftime("%Y%m%d")
+                day_key = f"scoreboard:{sport}:{league}:{day_str}"
+                day_cached = games_cache.get(day_key)
+                if day_cached is not None:
+                    day_games = day_cached
+                else:
+                    try:
+                        day_data = await _get(url, {"limit": 200, "dates": day_str})
+                        day_games = []
+                        for event in day_data.get("events", []):
+                            game = _parse_game(event, sport, league)
+                            if game:
+                                day_games.append(game)
+                        games_cache.set(day_key, day_games)
+                    except Exception as day_err:
+                        log.warning("ESPN per-day fetch failed (%s/%s %s): %s", sport, league, day_str, day_err)
+                        day_games = []
+                for g in day_games:
+                    if g.id not in seen:
+                        seen.add(g.id)
+                        games.append(g)
+                day += timedelta(days=1)
+            games_cache.set(cache_key, games)
+            return games
+        log.error("ESPN scoreboard fetch failed (%s/%s): %s", sport, league, e)
+        return []
     except Exception as e:
         log.error("ESPN scoreboard fetch failed (%s/%s): %s", sport, league, e)
         return []
