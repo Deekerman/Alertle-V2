@@ -593,8 +593,9 @@ class AlertScheduler:
         from espn.client import get_game_status
 
         game = match.game
+        game_date = game.start_time.strftime("%Y%m%d")
         for attempt in range(MAX_SUMMARY_RETRIES):
-            fresh = await get_game_status(game.sport, game.league, game.id)
+            fresh = await get_game_status(game.sport, game.league, game.id, game_date=game_date)
             if fresh and fresh.status == "final":
                 match.game = fresh
                 await _dispatch(endpoint, "game_summary", [(match, sub)], tz_name,
