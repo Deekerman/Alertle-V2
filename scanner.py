@@ -85,36 +85,36 @@ async def run_scan(scheduler: AlertScheduler) -> dict:
     dispatcharr_cfg = raw.get("dispatcharr", {})
     output_profile = dispatcharr_cfg.get("output_profile", "").strip()
 
-    if dispatcharr and output_profile:
-        # Use Dispatcharr's filtered XMLTV output for the selected profile
-        xmltv_url = f"{dispatcharr.base_url}/output/epg/{output_profile}/"
-        log.info("Fetching EPG from Dispatcharr profile '%s': %s", output_profile, xmltv_url)
-        try:
-            epg_programs = await fetch_xmltv(xmltv_url)
-            log.info("Fetched %d EPG programs from Dispatcharr XMLTV (profile: %s)",
-                     len(epg_programs), output_profile)
-        except Exception as e:
-            log.error("Failed to fetch Dispatcharr XMLTV (profile '%s'): %s", output_profile, e)
-    elif dispatcharr:
-        log.info("Fetching EPG programs from Dispatcharr REST API...")
-        epg_programs = await dispatcharr.get_programs(start=now, stop=scan_end)
-        log.info("Fetched %d EPG programs", len(epg_programs))
-        # Enrich programs with channel numbers from the channels API
-        try:
-            channels = await dispatcharr.get_channels()
-            ch_num_map     = {ch.id: ch.channel_number     for ch in channels if ch.channel_number}
-            ch_name_map    = {ch.id: ch.name               for ch in channels if ch.name}
-            ch_num_by_tvg  = {ch.tvg_id: ch.channel_number for ch in channels if ch.tvg_id and ch.channel_number}
-            ch_name_by_tvg = {ch.tvg_id: ch.name           for ch in channels if ch.tvg_id and ch.name}
-            for prog in epg_programs:
-                prog.channel_number = (ch_num_map.get(prog.channel_id, "") or
-                                       ch_num_by_tvg.get(prog.channel_id, ""))
-                if not prog.channel_name:
-                    prog.channel_name = (ch_name_map.get(prog.channel_id, "") or
-                                         ch_name_by_tvg.get(prog.channel_id, ""))
-            log.info("Enriched programs with channel numbers and names (%d channels by tvg_id)", len(ch_name_by_tvg))
-        except Exception as e:
-            log.warning("Could not enrich channel data: %s", e)
+    if dispatcharr:
+        if output_profile:
+            xmltv_url = f"{dispatcharr.base_url}/output/epg/{output_profile}/"
+            log.info("Fetching EPG from Dispatcharr profile '%s': %s", output_profile, xmltv_url)
+            try:
+                epg_programs = await fetch_xmltv(xmltv_url)
+                log.info("Fetched %d EPG programs from Dispatcharr XMLTV (profile: %s)",
+                         len(epg_programs), output_profile)
+            except Exception as e:
+                log.error("Failed to fetch Dispatcharr XMLTV (profile '%s'): %s", output_profile, e)
+        if not epg_programs:
+            log.info("Fetching EPG programs from Dispatcharr REST API%s...",
+                     " (XMLTV unavailable, falling back)" if output_profile else "")
+            epg_programs = await dispatcharr.get_programs(start=now, stop=scan_end)
+            log.info("Fetched %d EPG programs", len(epg_programs))
+            try:
+                channels = await dispatcharr.get_channels()
+                ch_num_map     = {ch.id: ch.channel_number     for ch in channels if ch.channel_number}
+                ch_name_map    = {ch.id: ch.name               for ch in channels if ch.name}
+                ch_num_by_tvg  = {ch.tvg_id: ch.channel_number for ch in channels if ch.tvg_id and ch.channel_number}
+                ch_name_by_tvg = {ch.tvg_id: ch.name           for ch in channels if ch.tvg_id and ch.name}
+                for prog in epg_programs:
+                    prog.channel_number = (ch_num_map.get(prog.channel_id, "") or
+                                           ch_num_by_tvg.get(prog.channel_id, ""))
+                    if not prog.channel_name:
+                        prog.channel_name = (ch_name_map.get(prog.channel_id, "") or
+                                             ch_name_by_tvg.get(prog.channel_id, ""))
+                log.info("Enriched programs with channel numbers and names (%d channels by tvg_id)", len(ch_name_by_tvg))
+            except Exception as e:
+                log.warning("Could not enrich channel data: %s", e)
     else:
         log.warning("Dispatcharr not configured — channel matching disabled")
 

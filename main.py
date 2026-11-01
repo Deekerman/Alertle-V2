@@ -347,18 +347,14 @@ async def list_channels():
         return JSONResponse({"ok": False, "error": "Dispatcharr not configured"}, status_code=400)
     output_profile = raw.get("dispatcharr", {}).get("output_profile", "").strip()
     if output_profile:
-        # When a channel profile is configured, return only the channels present
-        # in that profile's XMLTV output — the same source used during EPG scans.
         from epg.xmltv import fetch_xmltv_channels
-        try:
-            xmltv_url = f"{client.base_url}/output/epg/{output_profile}/"
-            channels = await fetch_xmltv_channels(xmltv_url)
+        xmltv_url = f"{client.base_url}/output/epg/{output_profile}/"
+        xmltv_channels = await fetch_xmltv_channels(xmltv_url)
+        if xmltv_channels:
             return JSONResponse([
                 {"id": ch["id"], "name": ch["name"], "number": ch["number"]}
-                for ch in channels
+                for ch in xmltv_channels
             ])
-        except Exception as e:
-            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     try:
         channels = await client.get_channels()
         return JSONResponse([
