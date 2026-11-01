@@ -143,6 +143,8 @@ def _parse_game(event: dict, sport: str, league: str) -> ESPNGame | None:
     """Parse a single ESPN scoreboard event into an ESPNGame."""
     try:
         competition = (event.get("competitions") or [{}])[0]
+        if not competition:
+            return None
         competitors = competition.get("competitors", [])
         if len(competitors) < 2:
             return None
@@ -354,12 +356,17 @@ async def get_games_for_subscription(
     ]
 
 
-async def get_game_status(sport: str, league: str, game_id: str) -> ESPNGame | None:
-    """Re-fetch a single game's current status — used by the summary poller."""
-    # Bypass cache — we need fresh status
+async def get_game_status(sport: str, league: str, game_id: str, game_date: str | None = None) -> ESPNGame | None:
+    """Re-fetch a single game's current status — used by the summary poller.
+    game_date: YYYYMMDD string of the game's start date; if given, fetches that
+    day's scoreboard so games that have already rolled off the live feed are found.
+    """
     url = f"{BASE}/{sport}/{league}/scoreboard"
+    params: dict[str, Any] = {}
+    if game_date:
+        params["dates"] = game_date
     try:
-        data = await _get(url)
+        data = await _get(url, params)
     except Exception as e:
         log.error("ESPN status check failed for game %s: %s", game_id, e)
         return None
