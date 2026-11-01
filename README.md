@@ -29,7 +29,7 @@ If it works, great. If something breaks, that's also the vibes. PRs are welcome.
 ```yaml
 services:
   alertle-v2:
-    image: ghcr.io/deekerman/alertle-v2:b4f36b8
+    image: ghcr.io/deekerman/alertle-v2:latest
     container_name: alertle-v2
     pull_policy: always
     restart: unless-stopped
