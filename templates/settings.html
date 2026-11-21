@@ -32,7 +32,7 @@
         <span class="slider"></span>
       </label>
       <span class="hint">
-        When a channel's EPG coverage starts before kick-off, append the coverage start time
+        When channels start coverage at different times, append each early channel's start time
         to the channel entry — e.g. <code>111 - Sky Sports Main Event (from 11:30 AM)</code>
       </span>
     </div>
@@ -49,7 +49,7 @@
       <label for="notification_template">Default Template</label>
       <textarea id="notification_template" name="notification_template" rows="7"
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
-                placeholder="{description}&#10;{time}&#10;{venue}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
+                placeholder="{description}&#10;{time}&#10;{coverage}&#10;{venue}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
       <span class="hint">
         Available variables: <code>{time}</code> <code>{channels}</code> <code>{coverage}</code>
         <code>{broadcast}</code> <code>{venue}</code> <code>{context}</code> <code>{odds}</code>
@@ -59,7 +59,7 @@
         <code>{home_abbrev}</code> <code>{away_abbrev}</code> <code>{league}</code> <code>{sport}</code>
         — <code>{coverage}</code> shows "Coverage from X:XX AM • Kick-off Y:YY AM" when pre-game coverage is detected
       </span>
-      <span class="hint">Leave empty to use default: description, time, venue, channels</span>
+      <span class="hint">Leave empty to use default: description, time, coverage, venue, channels</span>
     </div>
     <div class="form-row" style="margin-top:1rem">
       <label for="lead_time_template">Lead-Time Template</label>

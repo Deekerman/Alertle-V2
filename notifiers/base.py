@@ -22,6 +22,7 @@ _GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
 
 DEFAULT_TEMPLATE = """{description}
 {time}
+{coverage}
 {venue}
 {channels}"""
 
@@ -248,40 +249,45 @@ def build_game_lines(
         except Exception:
             show_pregame = True
 
-        channel_lines = []
-        pre_game_starts = []
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = None
+
+        def _fmt(dt: datetime) -> str:
+            return dt.astimezone(tz).strftime('%-I:%M %p') if tz else dt.strftime('%H:%M UTC')
+
+        # Pre-game start per channel; channels without one start at kick-off
+        pre_game: dict[str, datetime] = {}
         for ch in (match.channels or []):
             iso = coverage_starts.get(ch)
-            if iso and show_pregame:
-                try:
-                    prog_start = datetime.fromisoformat(iso)
-                    if game.start_time - prog_start > timedelta(minutes=10):
-                        tz = ZoneInfo(tz_name)
-                        local_start = prog_start.astimezone(tz)
-                        channel_lines.append(f"{ch} (from {local_start.strftime('%-I:%M %p')})")
-                        pre_game_starts.append(prog_start)
-                        continue
-                except Exception:
-                    pass
-            channel_lines.append(ch)
+            if not iso:
+                continue
+            try:
+                prog_start = datetime.fromisoformat(iso)
+            except ValueError:
+                continue
+            if game.start_time - prog_start > timedelta(minutes=10):
+                pre_game[ch] = prog_start
+
+        # Uniform start across every channel → one {coverage} line, plain channels
+        uniform = (bool(pre_game) and len(pre_game) == len(match.channels or [])
+                   and len(set(pre_game.values())) == 1)
+
+        channel_lines = []
+        for ch in (match.channels or []):
+            if ch in pre_game and show_pregame and not uniform:
+                channel_lines.append(f"{ch} (from {_fmt(pre_game[ch])})")
+            else:
+                channel_lines.append(ch)
 
         channels_str = "\n".join(channel_lines) if channel_lines else ""
         channels_line = f"📺 {channels_str}" if channels_str else ""
 
-        # Option B: {coverage} variable — earliest pre-game coverage vs kick-off
         coverage = ""
-        if pre_game_starts:
-            try:
-                earliest = min(pre_game_starts)
-                tz = ZoneInfo(tz_name)
-                early_local = earliest.astimezone(tz)
-                game_local = game.start_time.astimezone(tz)
-                coverage = (
-                    f"Coverage from {early_local.strftime('%-I:%M %p')} "
-                    f"• Kick-off {game_local.strftime('%-I:%M %p')}"
-                )
-            except Exception:
-                pass
+        if pre_game:
+            coverage = (f"Coverage from {_fmt(min(pre_game.values()))} "
+                        f"• Kick-off {_fmt(game.start_time)}")
 
     venue = ""
     if game.venue:
