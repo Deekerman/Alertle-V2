@@ -327,9 +327,16 @@ def build_game_lines(
 
     broadcast = ", ".join(game.broadcast_networks) if game.broadcast_networks else ""
 
+    if is_event and match.schedule:
+        channel_count = len({c for e in match.schedule for c in e.get("channels", [])})
+    else:
+        channel_count = len(match.channels or [])
+    channel_label = "Channels" if channel_count > 1 else "Channel" if channel_count else ""
+
     if not show_channels:
         channels_str = ""
         channels_line = ""
+        channel_label = ""
 
     # Game-Thumbs — read base_url from config at runtime
     thumb_url = ""
@@ -357,6 +364,7 @@ def build_game_lines(
         "time":         time_str,
         "channels":     channels_str,
         "channels_line": channels_line,
+        "channel_label": channel_label,
         "coverage":     coverage,
         "broadcast":    broadcast,
         "venue":        venue,

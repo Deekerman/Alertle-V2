@@ -51,13 +51,13 @@
                 style="font-family: monospace; font-size: 0.85rem; white-space: pre"
                 placeholder="{description}&#10;{time}&#10;{coverage}&#10;{venue}&#10;{channels}">{{ cfg.get('notification_defaults', {}).get('template', '') }}</textarea>
       <span class="hint">
-        Available variables: <code>{time}</code> <code>{channels}</code> <code>{coverage}</code>
+        Available variables: <code>{time}</code> <code>{channels}</code> <code>{channel_label}</code> <code>{coverage}</code>
         <code>{broadcast}</code> <code>{venue}</code> <code>{context}</code> <code>{odds}</code>
         <code>{odds_spread}</code> <code>{odds_home_spread}</code> <code>{odds_away_spread}</code>
         <code>{odds_ou}</code> <code>{odds_home_ml}</code> <code>{odds_away_ml}</code>
         <code>{score}</code> <code>{description}</code> <code>{home}</code> <code>{away}</code>
         <code>{home_abbrev}</code> <code>{away_abbrev}</code> <code>{league}</code> <code>{sport}</code>
-        — <code>{coverage}</code> shows "Coverage from X:XX AM • Kick-off / Puck drop / Tip-off Y:YY AM" (label matches the sport) when pre-game coverage is detected
+        — <code>{coverage}</code> shows "Coverage from X:XX AM • Kick-off / Puck drop / Tip-off Y:YY AM" (label matches the sport) when pre-game coverage is detected; <code>{channel_label}</code> is "Channel" or "Channels" depending on the count
       </span>
       <span class="hint">Leave empty to use default: description, time, coverage, venue, channels</span>
     </div>
