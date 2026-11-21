@@ -286,7 +286,7 @@ def build_game_lines(
         channel_lines = []
         for ch in (match.channels or []):
             if ch in pre_game and show_pregame and not uniform:
-                channel_lines.append(f"{ch} (from {_fmt(pre_game[ch])})")
+                channel_lines.append(f"{ch} ({_fmt(pre_game[ch])})")
             else:
                 channel_lines.append(ch)
 
