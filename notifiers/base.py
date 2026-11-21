@@ -20,6 +20,15 @@ from game_thumbs.builder import build_url, build_league_url
 
 _GAME_THUMBS_DEFAULT = "https://game-thumbs.swvn.io"
 
+_START_LABELS = {
+    "soccer":     "Kick-off",
+    "rugby":      "Kick-off",
+    "football":   "Kickoff",
+    "hockey":     "Puck drop",
+    "basketball": "Tip-off",
+    "baseball":   "First pitch",
+}
+
 DEFAULT_TEMPLATE = """{description}
 {time}
 {coverage}
@@ -287,7 +296,7 @@ def build_game_lines(
         coverage = ""
         if pre_game:
             coverage = (f"Coverage from {_fmt(min(pre_game.values()))} "
-                        f"• Kick-off {_fmt(game.start_time)}")
+                        f"• {_START_LABELS.get(game.sport, 'Start')} {_fmt(game.start_time)}")
 
     venue = ""
     if game.venue:
