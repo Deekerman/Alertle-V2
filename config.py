@@ -64,6 +64,11 @@ def get_standings_time(raw: dict | None = None) -> str:
     return get_settings(raw).get("standings_time", "18:00")
 
 
+def get_show_pregame_time(raw: dict | None = None) -> bool:
+    """Whether to append pre-game coverage start times to channel strings. Default True."""
+    return get_settings(raw).get("show_pregame_time", True)
+
+
 def get_dispatcharr(raw: dict | None = None) -> dict:
     raw = raw or _load_raw()
     return raw.get("dispatcharr", {})

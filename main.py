@@ -119,6 +119,7 @@ async def save_settings(request: Request):
     raw.setdefault("settings", {})
     raw["settings"]["timezone"] = form.get("timezone", "UTC")
     raw["settings"]["scan_time"] = form.get("scan_time", "06:00")
+    raw["settings"]["show_pregame_time"] = form.get("show_pregame_time") == "on"
 
     raw.setdefault("dispatcharr", {})
     raw["dispatcharr"]["url"] = form.get("dispatcharr_url", "").strip()

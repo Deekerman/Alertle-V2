@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
@@ -238,9 +238,50 @@ def build_game_lines(
     if is_event and match.schedule:
         channels_str = _format_schedule(match.schedule, tz_name)
         channels_line = channels_str  # schedule block, no prefix
+        coverage = ""
     else:
-        channels_str = "\n".join(match.channels) if match.channels else ""
+        # Option A: append pre-game start time to channel strings when enabled
+        coverage_starts = match.coverage_starts or {}
+        try:
+            import config as _cfg
+            show_pregame = _cfg.get_show_pregame_time()
+        except Exception:
+            show_pregame = True
+
+        channel_lines = []
+        pre_game_starts = []
+        for ch in (match.channels or []):
+            iso = coverage_starts.get(ch)
+            if iso and show_pregame:
+                try:
+                    prog_start = datetime.fromisoformat(iso)
+                    if game.start_time - prog_start > timedelta(minutes=10):
+                        tz = ZoneInfo(tz_name)
+                        local_start = prog_start.astimezone(tz)
+                        channel_lines.append(f"{ch} (from {local_start.strftime('%-I:%M %p')})")
+                        pre_game_starts.append(prog_start)
+                        continue
+                except Exception:
+                    pass
+            channel_lines.append(ch)
+
+        channels_str = "\n".join(channel_lines) if channel_lines else ""
         channels_line = f"📺 {channels_str}" if channels_str else ""
+
+        # Option B: {coverage} variable — earliest pre-game coverage vs kick-off
+        coverage = ""
+        if pre_game_starts:
+            try:
+                earliest = min(pre_game_starts)
+                tz = ZoneInfo(tz_name)
+                early_local = earliest.astimezone(tz)
+                game_local = game.start_time.astimezone(tz)
+                coverage = (
+                    f"Coverage from {early_local.strftime('%-I:%M %p')} "
+                    f"• Kick-off {game_local.strftime('%-I:%M %p')}"
+                )
+            except Exception:
+                pass
 
     venue = ""
     if game.venue:
@@ -301,6 +342,7 @@ def build_game_lines(
         "time":         time_str,
         "channels":     channels_str,
         "channels_line": channels_line,
+        "coverage":     coverage,
         "broadcast":    broadcast,
         "venue":        venue,
         "context":      context,

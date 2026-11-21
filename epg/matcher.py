@@ -50,33 +50,38 @@ def _terms_for_team(team: ESPNTeam) -> list[str]:
 def find_channels_for_game(
     game: ESPNGame,
     programs: list[EPGProgram],
-) -> tuple[list[str], str]:
+) -> tuple[list[str], str, dict[str, str]]:
     """
-    Return (channels, description) where:
+    Return (channels, description, coverage_starts) where:
     - channels: deduplicated sorted list of "{number} - {name}" strings
     - description: first non-empty EPG program description from matched programs
+    - coverage_starts: maps each channel display string → EPG program start (ISO UTC);
+      only populated when the program starts before the game's kick-off time
 
     A program matches when:
-      - Its start time is within ±MATCH_WINDOW_MINUTES of the game's start_time
+      - Its start time is within ±MATCH_WINDOW_MINUTES of the game's start_time,
+        OR the game's start_time falls within the program's airing window
+        (prog.start ≤ game.start_time ≤ prog.stop — covers pre-match coverage)
       - At least one term for the HOME team appears in title+subtitle AND
         at least one term for the AWAY team appears in title+subtitle
-        (requiring both teams eliminates false positives from channels that
-        happen to mention one city/team name for an unrelated reason)
+        (requiring both teams eliminates false positives)
     """
     home_terms = _terms_for_team(game.home_team)
     away_terms = _terms_for_team(game.away_team)
     window = timedelta(minutes=MATCH_WINDOW_MINUTES)
-    # Map channel_name → display string (to deduplicate by channel, keep first number seen)
-    matched: dict[str, str] = {}
+    # Map channel_name → (display_string, prog_start)
+    matched: dict[str, tuple[str, object]] = {}
     first_description = ""
 
     for prog in programs:
-        # 1. Time window check
+        # 1. Time window check — program starts within ±window, OR kick-off falls
+        #    inside the program's airing window (pre-match coverage starting early)
         delta = abs(prog.start - game.start_time)
-        if delta > window:
+        in_window = delta <= window or (prog.start <= game.start_time <= prog.stop)
+        if not in_window:
             continue
 
-        # 2. Both teams must appear — title + subtitle only (description excluded)
+        # 2. Both teams must appear in title + subtitle
         haystack = f"{prog.title} {prog.subtitle}"
         if not (_text_contains_any(haystack, home_terms) and
                 _text_contains_any(haystack, away_terms)):
@@ -84,9 +89,10 @@ def find_channels_for_game(
 
         if prog.channel_name and prog.channel_name not in matched:
             if prog.channel_number:
-                matched[prog.channel_name] = f"{prog.channel_number} - {prog.channel_name}"
+                display = f"{prog.channel_number} - {prog.channel_name}"
             else:
-                matched[prog.channel_name] = prog.channel_name
+                display = prog.channel_name
+            matched[prog.channel_name] = (display, prog.start)
 
         if not first_description and prog.description:
             first_description = prog.description
@@ -95,7 +101,17 @@ def find_channels_for_game(
         m = re.match(r'^(\d+)', display)
         return (int(m.group(1)), display) if m else (10 ** 9, display)
 
-    return sorted(matched.values(), key=_sort_key), first_description
+    sorted_channels = sorted(
+        (display for display, _ in matched.values()), key=_sort_key
+    )
+
+    # coverage_starts: channel display → ISO UTC start, only for pre-game entries
+    coverage_starts: dict[str, str] = {}
+    for display, prog_start in matched.values():
+        if prog_start < game.start_time:
+            coverage_starts[display] = prog_start.isoformat()
+
+    return sorted_channels, first_description, coverage_starts
 
 
 def find_channels_for_event(

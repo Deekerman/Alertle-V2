@@ -85,6 +85,9 @@ class GameMatch:
     schedule: list[dict] = field(default_factory=list)
     # schedule: [{"start": "<ISO datetime UTC>", "channels": [...]}, ...]
     # populated for event_series; empty for regular team/league games
+    coverage_starts: dict = field(default_factory=dict)
+    # maps channel display string → EPG program start ISO UTC
+    # only present when the EPG program starts before kick-off (pre-match coverage)
 
 
 # ── Config models ─────────────────────────────────────────────────────────────
