@@ -76,8 +76,11 @@ def find_channels_for_game(
     for prog in programs:
         # 1. Time window check — program starts within ±window, OR kick-off falls
         #    inside the program's airing window (pre-match coverage starting early)
+        # Programs ending at or before kick-off are placeholders ("Upcoming" blocks)
+        if prog.stop <= game.start_time:
+            continue
         delta = abs(prog.start - game.start_time)
-        in_window = delta <= window or (prog.start <= game.start_time <= prog.stop)
+        in_window = delta <= window or (prog.start <= game.start_time < prog.stop)
         if not in_window:
             continue
 
